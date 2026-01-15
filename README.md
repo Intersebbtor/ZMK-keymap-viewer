@@ -1,59 +1,125 @@
 # ZMK Keymap Viewer
 
-A lightweight macOS menu bar app for visualizing your ZMK keyboard keymaps.
+> **Quickly view your ZMK keyboard layers without leaving your workflow.**
+
+A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-## Features
+<!-- 
+## Screenshot
+![ZMK Keymap Viewer Screenshot](screenshot.png)
+-->
 
-- 🎹 **Menu bar app** - Always accessible from your menu bar
-- 📂 **Load any .keymap file** - Just paste the path to your keymap
-- 🔄 **Layer switching** - View all your keymap layers
-- ⌨️ **2D keyboard grid** - Visual layout for Cradio/Sweep (34 keys)
-- 📝 **Open in editor** - Quick access to edit your keymap
-- 🕐 **Recent keymaps** - Remembers your last used keymaps
-- 🚀 **Auto-load** - Automatically loads your most recent keymap on launch
+---
 
-## Installation
+## ✨ Features
 
-### Download (Recommended)
+| Feature | Description |
+|---------|-------------|
+| 🎹 **Menu bar app** | Always one click away - lives in your menu bar |
+| 📂 **Load any .keymap** | Point to your local ZMK keymap file |
+| 🔄 **Layer switching** | Instantly switch between all your layers |
+| ⌨️ **2D keyboard grid** | See your bindings in a visual keyboard layout |
+| 📝 **Open in editor** | Jump straight to editing your keymap |
+| 🕐 **Recent keymaps** | Quick access to previously loaded files |
+| 🚀 **Auto-load** | Remembers and loads your last keymap on launch |
 
-1. Go to [**Releases**](../../releases)
-2. Download the latest `ZMK-Keymap-Viewer.dmg`
-3. Open the DMG and drag the app to your Applications folder
-4. Launch from Applications or Spotlight
+---
 
-### Build from Source
+## 📥 Installation
+
+### Option 1: Download (Recommended)
+
+1. Go to [**Releases**](../../releases/latest)
+2. Download `ZMK-Keymap-Viewer.dmg`
+3. Open the DMG and drag **ZMK Keymap Viewer** to your Applications folder
+4. Launch from Applications or Spotlight (search "ZMK")
+
+> **Note:** On first launch, macOS may ask you to allow the app. Go to **System Settings → Privacy & Security** and click "Open Anyway".
+
+### Option 2: Build from Source
+
+Requires Xcode Command Line Tools and Swift 5.9+.
 
 ```bash
-git clone https://github.com/yourusername/ZMK-keymap-viewer.git
+# Clone the repo
+git clone https://github.com/sebietter/ZMK-keymap-viewer.git
 cd ZMK-keymap-viewer
+
+# Build release binary
 swift build -c release
+
+# Run directly
+.build/release/ZMKKeymapViewer
+
+# Or create an app bundle
+mkdir -p "ZMK Keymap Viewer.app/Contents/MacOS"
+cp .build/release/ZMKKeymapViewer "ZMK Keymap Viewer.app/Contents/MacOS/"
 ```
 
-The binary will be at `.build/release/ZMKKeymapViewer`
+---
 
-## Usage
+## 🚀 Quick Start
 
-1. Click the ⌨️ keyboard icon in your menu bar
-2. Click "Select File..." and paste the path to your `.keymap` file
-3. Select a layer to view its bindings
-4. Use "Open in Editor" to edit your keymap
+1. **Click the ⌨️ icon** in your menu bar
+2. **Click "Select File..."** and paste the full path to your `.keymap` file  
+   (e.g., `~/zmk-config/config/cradio.keymap`)
+3. **Click a layer button** to view that layer's bindings
+4. **Done!** Your keymap is now always one click away
 
-## Supported Keyboards
+### Tips
 
-Currently optimized for:
-- **Cradio/Sweep** (34 keys)
+- Use **Recent** dropdown to quickly switch between keymaps
+- Click **Open in Editor** to jump to your keymap file
+- The app **auto-loads** your last keymap when you reopen it
 
-More layouts coming soon!
+---
 
-## Built With
+## ⌨️ Supported Keyboards
 
-- SwiftUI + AppKit
-- Swift Package Manager
-- 100% vibe coded with GitHub Copilot ✨
+Currently optimized for **split 34-key layouts**:
 
-## License
+- ✅ **Cradio / Sweep**
+- ✅ **Ferris**
+- ✅ Any 34-key ZMK board
 
-MIT
+> **Want support for your keyboard?** Open an issue with your layout and I'll add it!
+
+---
+
+## 🛠️ How It Works
+
+The app parses your `.keymap` file and extracts:
+- All layers defined in the `keymap {}` block
+- Bindings like `&kp`, `&lt`, `&mt`, `&trans`, `&bt`, and custom behaviors
+- Layer names from comments (e.g., `// Base` or `/* Num */`)
+
+It then displays them in a visual grid matching your keyboard's physical layout.
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Some ideas:
+
+- [ ] Add more keyboard layouts (Corne, Lily58, etc.)
+- [ ] Parse combos and macros
+- [ ] Dark/light theme toggle
+- [ ] Export layout as image
+
+---
+
+## 📦 Built With
+
+- **SwiftUI + AppKit** - Native macOS experience
+- **Swift Package Manager** - Simple build system
+- **100% vibe coded with GitHub Copilot** ✨
+
+---
+
+## 📄 License
+
+MIT © Sebastian Stierstorfer
