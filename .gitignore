@@ -10,3 +10,16 @@ DerivedData/
 !default.xcworkspace
 *.xcodeproj/xcuserdata/
 *.xcodeproj/xcuserdata/*.xcuserdatad
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# App Bundle (use DMG for distribution)
+ZMK Keymap Viewer.app/
+
+# DMG (uploaded as release asset, not in git)
+*.dmg
+
+# VS Code
+.vscode/
