@@ -37,9 +37,13 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 1. Go to [**Releases**](../../releases/latest)
 2. Download `ZMK-Keymap-Viewer.dmg`
 3. Open the DMG and drag **ZMK Keymap Viewer** to your Applications folder
-4. Launch from Applications or Spotlight (search "ZMK")
+4. **Important:** Open Terminal and run:
+   ```bash
+   xattr -cr "/Applications/ZMK Keymap Viewer.app"
+   ```
+5. Launch from Applications or Spotlight (search "ZMK")
 
-> **Note:** On first launch, macOS may ask you to allow the app. Go to **System Settings → Privacy & Security** and click "Open Anyway".
+> **Why step 4?** The app isn't signed with an Apple Developer certificate, so macOS blocks it. The command removes the quarantine flag.
 
 ### Option 2: Build from Source
 
