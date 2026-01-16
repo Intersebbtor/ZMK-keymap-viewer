@@ -190,24 +190,11 @@ struct ContentView: View {
                 .font(.headline)
                 .foregroundColor(.secondary)
             
-            Text("Paste a path above or browse for a file")
+            Text("Paste a path above and press Load")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    private func browseForFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "keymap")!]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = "Select a ZMK keymap file"
-        
-        if panel.runModal() == .OK, let url = panel.url {
-            pathText = url.path
-            loadKeymap(from: url.path)
-        }
     }
     
     private func loadFromPathText() {
