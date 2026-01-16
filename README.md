@@ -129,4 +129,4 @@ Contributions welcome! Some ideas:
 
 ## 📄 License
 
-MIT © Sebastian Stierstorfer
+MIT © Intersebbtor
