@@ -343,8 +343,8 @@ struct KeyView: View {
         } else if binding.displayText.contains("\n") {
             // Mod-tap or layer-tap
             return Color.purple.opacity(0.15)
-        } else if binding.displayText.hasPrefix("L") && binding.displayText.count <= 3 {
-            // Layer toggle/momentary
+        } else if binding.rawCode.hasPrefix("&mo") || binding.rawCode.hasPrefix("&to") || binding.rawCode.hasPrefix("&tog") {
+            // Layer toggle/momentary - check raw code, not display text
             return Color.orange.opacity(0.15)
         } else if ["BT", "RESET", "BOOT", "STUDIO"].contains(where: { binding.displayText.contains($0) }) {
             return Color.green.opacity(0.15)
