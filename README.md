@@ -1,4 +1,5 @@
 # ZMK Keymap Viewer
+## Disclaimer: This app is completely based on AI-output.
 
 > **Quickly view your ZMK keyboard layers without leaving your workflow.**
 
