@@ -47,6 +47,10 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+# Ad-hoc code sign (avoids "damaged app" error, allows right-click → Open)
+echo "🔏 Code signing..."
+codesign --force --deep --sign - "$APP_BUNDLE"
+
 echo "💿 Creating DMG..."
 DMG_NAME="ZMK-Keymap-Viewer"
 DMG_PATH="${PROJECT_DIR}/${DMG_NAME}.dmg"
