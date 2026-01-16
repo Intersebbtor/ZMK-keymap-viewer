@@ -2,30 +2,80 @@ import Foundation
 import Combine
 
 class KeymapViewModel: ObservableObject {
-    // State properties
-    @Published var keymap: [String: Any] = [:]  // Example type, adjust as necessary
-    @Published var selectedLayer: String?
-
+    @Published var keymap: Keymap?
+    @Published var currentFilePath: String?
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
+    
+    private var fileMonitor: FileMonitor?
     private var cancellables = Set<AnyCancellable>()
-
+    
     init() {
-        // Initialize with default values or load from persistent storage
-        loadKeymap() // this function should be implemented to load keymap
-        setupFileMonitoring() // setup file monitoring method
+        // Try to load last opened file from UserDefaults
+        if let lastPath = UserDefaults.standard.string(forKey: "lastKeymapPath") {
+            loadKeymap(from: lastPath)
+        }
     }
-
-    // Method to load the keymap
-    private func loadKeymap() {
-        // Load keymap logic here (e.g., from filesystem or API)
+    
+    func loadKeymap(from filePath: String) {
+        isLoading = true
+        errorMessage = nil
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                let data = try String(contentsOfFile: filePath, encoding: .utf8)
+                
+                if let parsed = KeymapParser.parse(from: data) {
+                    DispatchQueue.main.async {
+                        self.keymap = parsed
+                        self.currentFilePath = filePath
+                        self.isLoading = false
+                        
+                        // Save to UserDefaults
+                        UserDefaults.standard.set(filePath, forKey: "lastKeymapPath")
+                        
+                        // Setup file monitoring
+                        self.setupFileMonitoring(for: filePath)
+                        
+                        print("Loaded keymap: \(parsed.layout.name) with \(parsed.layers.count) layers")
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Failed to parse keymap file"
+                        self.isLoading = false
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Error reading file: \(error.localizedDescription)"
+                    self.isLoading = false
+                }
+            }
+        }
     }
-
-    // Method to set up file monitoring
-    private func setupFileMonitoring() {
-        // Logic to monitor keymap changes (e.g., using FileManager or any other means)
+    
+    func reloadCurrentKeymap() {
+        if let path = currentFilePath {
+            loadKeymap(from: path)
+        }
     }
-
-    // Method to select a layer
-    func selectLayer(_ layer: String) {
-        selectedLayer = layer
+    
+    private func setupFileMonitoring(for filePath: String) {
+        // Cancel existing monitor
+        fileMonitor?.stopMonitoring()
+        
+        // Create new monitor
+        fileMonitor = FileMonitor(filePath: filePath)
+        fileMonitor?.onFileChange = { [weak self] in
+            print("File changed, reloading...")
+            self?.reloadCurrentKeymap()
+        }
+        fileMonitor?.startMonitoring()
+    }
+    
+    deinit {
+        fileMonitor?.stopMonitoring()
     }
 }

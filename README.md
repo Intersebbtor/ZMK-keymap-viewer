@@ -20,9 +20,10 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 | Feature | Description |
 |---------|-------------|
 | 🎹 **Menu bar app** | Always one click away - lives in your menu bar |
-| 📂 **Load any .keymap** | Point to your local ZMK keymap file |
+| 📂 **Paste any path** | Simply paste the path to your ZMK keymap file |
 | 🔄 **Layer switching** | Instantly switch between all your layers |
-| ⌨️ **2D keyboard grid** | See your bindings in a visual keyboard layout |
+| ⌨️ **Dynamic layouts** | Auto-detects keyboard size (Sweep, Corne, etc.) |
+| 💬 **Tooltips** | Hover over keys to see raw binding code |
 | 📝 **Open in editor** | Jump straight to editing your keymap |
 | 🕐 **Recent keymaps** | Quick access to previously loaded files |
 | 🚀 **Auto-load** | Remembers and loads your last keymap on launch |
@@ -65,28 +66,32 @@ cp .build/release/ZMKKeymapViewer "ZMK Keymap Viewer.app/Contents/MacOS/"
 ## 🚀 Quick Start
 
 1. **Click the ⌨️ icon** in your menu bar
-2. **Click "Select File..."** and paste the full path to your `.keymap` file  
-   (e.g., `~/zmk-config/config/cradio.keymap`)
-3. **Click a layer button** to view that layer's bindings
-4. **Done!** Your keymap is now always one click away
+2. **Paste the full path** to your `.keymap` file and click **Load**  
+   (e.g., `/Users/you/zmk-config/config/cradio.keymap`)
+3. **Click a layer tab** to view that layer's bindings
+4. **Hover over keys** to see the raw ZMK binding code
+5. **Done!** Your keymap is now always one click away
 
 ### Tips
 
 - Use **Recent** dropdown to quickly switch between keymaps
 - Click **Open in Editor** to jump to your keymap file
+- Press **Enter** after pasting a path to load immediately
 - The app **auto-loads** your last keymap when you reopen it
 
 ---
 
 ## ⌨️ Supported Keyboards
 
-Currently optimized for **split 34-key layouts**:
+Auto-detects layout based on key count:
 
-- ✅ **Cradio / Sweep**
-- ✅ **Ferris**
-- ✅ Any 34-key ZMK board
+| Keys | Layout |
+|------|--------|
+| 34 | Sweep, Cradio, Ferris |
+| 42 | Corne, Crkbd |
+| Other | Generic split layout |
 
-> **Want support for your keyboard?** Open an issue with your layout and I'll add it!
+> **Want better support for your keyboard?** Open an issue with your layout details!
 
 ---
 
@@ -105,10 +110,11 @@ It then displays them in a visual grid matching your keyboard's physical layout.
 
 Contributions welcome! Some ideas:
 
-- [ ] Add more keyboard layouts (Corne, Lily58, etc.)
+- [ ] Add more keyboard layout presets
 - [ ] Parse combos and macros
 - [ ] Dark/light theme toggle
 - [ ] Export layout as image
+- [ ] Live file watching for auto-reload
 
 ---
 
