@@ -203,6 +203,10 @@ struct ContentView: View {
         guard path.hasSuffix(".keymap") else { return }
         guard FileManager.default.fileExists(atPath: path) else { return }
         loadKeymap(from: path)
+        // Keep menu bar window active after loading
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
     
     private func loadKeymap(from path: String) {
@@ -210,6 +214,10 @@ struct ContentView: View {
         viewModel.loadKeymap(from: path)
         appState.addRecentKeymap(path)
         selectedLayerIndex = 0
+        // Keep menu bar window active
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }
 
