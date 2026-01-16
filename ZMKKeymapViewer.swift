@@ -1,5 +1,8 @@
 import SwiftUI
 
+let appVersion = "1.0.1"
+let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
+
 @main
 struct ZMKKeymapViewerApp: App {
     @StateObject private var appState = AppState()
@@ -17,6 +20,8 @@ struct ZMKKeymapViewerApp: App {
 
 class AppState: ObservableObject {
     @Published var recentKeymaps: [String] = []
+    @Published var updateAvailable: String? = nil
+    @Published var isCheckingUpdate = false
     
     private let recentKeymapsKey = "recentKeymaps"
     private let maxRecentKeymaps = 5
@@ -47,5 +52,37 @@ class AppState: ObservableObject {
     func clearRecentKeymaps() {
         recentKeymaps = []
         UserDefaults.standard.removeObject(forKey: recentKeymapsKey)
+    }
+    
+    func checkForUpdates() {
+        isCheckingUpdate = true
+        updateAvailable = nil
+        
+        let url = URL(string: "https://api.github.com/repos/\(githubRepo)/releases/latest")!
+        var request = URLRequest(url: url)
+        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                self?.isCheckingUpdate = false
+                
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let tagName = json["tag_name"] as? String else {
+                    return
+                }
+                
+                let latestVersion = tagName.replacingOccurrences(of: "v", with: "")
+                if latestVersion.compare(appVersion, options: .numeric) == .orderedDescending {
+                    self?.updateAvailable = latestVersion
+                }
+            }
+        }.resume()
+    }
+    
+    func openReleasePage() {
+        if let url = URL(string: "https://github.com/\(githubRepo)/releases/latest") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

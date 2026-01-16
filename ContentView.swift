@@ -29,9 +29,29 @@ struct ContentView: View {
             
             Divider()
             
-            // Footer with quit button
+            // Footer with update and quit buttons
             HStack {
+                if let newVersion = appState.updateAvailable {
+                    Button("Update to v\(newVersion)") {
+                        appState.openReleasePage()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .font(.caption)
+                } else {
+                    Button(appState.isCheckingUpdate ? "Checking..." : "Check for Updates") {
+                        appState.checkForUpdates()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .disabled(appState.isCheckingUpdate)
+                }
+                
+                Text("v\(appVersion)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                
                 Spacer()
+                
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
