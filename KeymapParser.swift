@@ -218,10 +218,10 @@ class KeymapParser {
         var layers: [KeymapLayer] = []
         
         // Pattern to match layer definitions
-        // Use .*? (non-greedy) and match until ">;" to properly handle bindings
-        // that might contain > characters (like &kp GT for greater-than key)
-        // Also handles both "label" and "display-name" attributes
-        let layerPattern = "(\\w+)\\s*\\{\\s*(?:(?:label|display-name)\\s*=\\s*\"([^\"]*)\";)?\\s*bindings\\s*=\\s*<(.*?)>\\s*;"
+        // Use .*? (non-greedy) to match any content between { and bindings,
+        // including comments and whitespace. This handles keymaps with or without
+        // label/display-name, and with comments before bindings.
+        let layerPattern = "(\\w+)\\s*\\{.*?(?:(?:label|display-name)\\s*=\\s*\"([^\"]*)\"\\s*;)?.*?bindings\\s*=\\s*<(.*?)>\\s*;"
         guard let regex = try? NSRegularExpression(pattern: layerPattern, options: [.dotMatchesLineSeparators]) else {
             return layers
         }
