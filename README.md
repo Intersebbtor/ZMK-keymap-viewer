@@ -127,6 +127,18 @@ Contributions welcome! Some ideas:
 
 ---
 
+## ⚠️ Disclaimer
+
+**This tool was generated almost entirely by AI** (GitHub Copilot / Claude). While it works for me, you should treat it with the appropriate level of suspicion you'd give any AI-generated code. Use at your own risk, review the code if you're paranoid (you should be), and don't blame the robots when things go sideways.
+
+---
+
+## 🙋 Looking for Collaborators!
+
+I can only do as much coding as I have AI credits in the bank, lol. If you're interested in contributing, improving, or maintaining this project, **please reach out!** Open an issue, submit a PR, or just fork it and make it better.
+
+---
+
 ## 📄 License
 
 MIT © Intersebbtor

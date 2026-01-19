@@ -30,9 +30,9 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.sebietter.zmk-keymap-viewer</string>
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>1.0.3</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.0.3</string>
     <key>CFBundleExecutable</key>
     <string>ZMKKeymapViewer</string>
     <key>CFBundlePackageType</key>
