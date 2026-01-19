@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "1.0.2"
+let appVersion = "1.0.3"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
