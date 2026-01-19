@@ -1,11 +1,22 @@
 import SwiftUI
 
-let appVersion = "1.0.1"
+let appVersion = "1.0.2"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
 struct ZMKKeymapViewerApp: App {
     @StateObject private var appState = AppState()
+    
+    init() {
+        print("[App] ZMKKeymapViewer starting...")
+        
+        // Set up global exception handler for debugging
+        NSSetUncaughtExceptionHandler { exception in
+            print("[App] CRASH: \\(exception)")
+            print("[App] Reason: \\(exception.reason ?? \"unknown\")")
+            print("[App] Stack: \\(exception.callStackSymbols.joined(separator: \"\\n\"))")
+        }
+    }
     
     var body: some Scene {
         MenuBarExtra {

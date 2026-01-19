@@ -63,10 +63,14 @@ struct ContentView: View {
         .frame(minWidth: 750, minHeight: 450)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
+            print("[ContentView] onAppear triggered")
             // Auto-load most recent keymap
             if let mostRecent = appState.recentKeymaps.first {
+                print("[ContentView] Loading most recent keymap: \(mostRecent)")
                 pathText = mostRecent
                 loadKeymap(from: mostRecent)
+            } else {
+                print("[ContentView] No recent keymaps found")
             }
         }
     }

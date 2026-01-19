@@ -11,13 +11,26 @@ class KeymapViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     init() {
-        // Try to load last opened file from UserDefaults
-        if let lastPath = UserDefaults.standard.string(forKey: "lastKeymapPath") {
-            loadKeymap(from: lastPath)
-        }
+        // Don't auto-load here - ContentView.onAppear handles loading
+        // This prevents double-loading and race conditions
     }
     
     func loadKeymap(from filePath: String) {
+        // Validate path before attempting load
+        guard !filePath.isEmpty else {
+            print("[KeymapVM] Empty file path, skipping load")
+            return
+        }
+        
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            print("[KeymapVM] File does not exist: \(filePath)")
+            DispatchQueue.main.async {
+                self.errorMessage = "File not found"
+            }
+            return
+        }
+        
+        print("[KeymapVM] Loading keymap from: \(filePath)")
         isLoading = true
         errorMessage = nil
         
@@ -39,15 +52,17 @@ class KeymapViewModel: ObservableObject {
                         // Setup file monitoring
                         self.setupFileMonitoring(for: filePath)
                         
-                        print("Loaded keymap: \(parsed.layout.name) with \(parsed.layers.count) layers")
+                        print("[KeymapVM] Successfully loaded: \(parsed.layout.name) with \(parsed.layers.count) layers")
                     }
                 } else {
+                    print("[KeymapVM] Failed to parse keymap file")
                     DispatchQueue.main.async {
                         self.errorMessage = "Failed to parse keymap file"
                         self.isLoading = false
                     }
                 }
             } catch {
+                print("[KeymapVM] Error reading file: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.errorMessage = "Error reading file: \(error.localizedDescription)"
                     self.isLoading = false
