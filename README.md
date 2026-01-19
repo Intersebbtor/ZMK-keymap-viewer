@@ -116,10 +116,9 @@ Contributions welcome! Some ideas:
 
 - [ ] Improve visualization for Combos / Shortcuts
 - [ ] Parse combos and macros
-- [ ] Dark/light theme toggle
 - [ ] Export layout as image
 - [ ] Live file watching for auto-reload
-
+- [ ] File picker for keymap insertion (could not get this to run, hence the file path solution)
 ---
 
 ## 📦 Built With
