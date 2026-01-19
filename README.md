@@ -93,7 +93,8 @@ Auto-detects layout based on key count:
 | 42 | Corne, Crkbd |
 | Other | Generic split layout |
 
-> insert your keymqp and tell me how it went :)
+> insert your keymap and tell me how it went :)
+
 > **Want better support for your keyboard?** Open an issue with your layout details!
 
 ---
