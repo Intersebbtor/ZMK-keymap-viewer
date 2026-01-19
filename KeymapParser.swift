@@ -116,7 +116,9 @@ class KeymapParser {
         if let firstLayer = layers.first {
             let keysPerRow = calculateKeysPerRow(bindings: firstLayer.bindings)
             layout = KeyboardLayout.detect(fromKeyCount: firstLayer.bindings.count, keysPerRow: keysPerRow)
+            print("[KeymapParser] Detected: \(layout.name) with \(layers.count) layers, \(firstLayer.bindings.count) keys")
         } else {
+            print("[KeymapParser] No layers found, defaulting to Sweep")
             layout = .sweep
         }
         
@@ -216,7 +218,10 @@ class KeymapParser {
         var layers: [KeymapLayer] = []
         
         // Pattern to match layer definitions
-        let layerPattern = "(\\w+)\\s*\\{\\s*(?:label\\s*=\\s*\"([^\"]*)\";)?\\s*bindings\\s*=\\s*<([^>]*)>"
+        // Use .*? (non-greedy) and match until ">;" to properly handle bindings
+        // that might contain > characters (like &kp GT for greater-than key)
+        // Also handles both "label" and "display-name" attributes
+        let layerPattern = "(\\w+)\\s*\\{\\s*(?:(?:label|display-name)\\s*=\\s*\"([^\"]*)\";)?\\s*bindings\\s*=\\s*<(.*?)>\\s*;"
         guard let regex = try? NSRegularExpression(pattern: layerPattern, options: [.dotMatchesLineSeparators]) else {
             return layers
         }
