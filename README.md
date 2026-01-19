@@ -93,6 +93,7 @@ Auto-detects layout based on key count:
 | 42 | Corne, Crkbd |
 | Other | Generic split layout |
 
+> insert your keymqp and tell me how it went :)
 > **Want better support for your keyboard?** Open an issue with your layout details!
 
 ---
@@ -112,7 +113,7 @@ It then displays them in a visual grid matching your keyboard's physical layout.
 
 Contributions welcome! Some ideas:
 
-- [ ] Add more keyboard layout presets
+- [ ] Improve visualization for Combos / Shortcuts
 - [ ] Parse combos and macros
 - [ ] Dark/light theme toggle
 - [ ] Export layout as image
