@@ -255,12 +255,21 @@ class KeymapParser {
         return layers
     }
     
+    /// Strip C-style line comments (// ...) from a line
+    private static func stripLineComment(_ line: String) -> String {
+        if let commentRange = line.range(of: "//") {
+            return String(line[..<commentRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
+        return line
+    }
+    
     private static func parseBindings(from bindingsRaw: String) -> [KeyBinding] {
         var bindings: [KeyBinding] = []
         
         // Split by newlines first to preserve row structure
         let lines = bindingsRaw.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { stripLineComment($0) }  // Strip // comments from each line
             .filter { !$0.isEmpty }
         
         var currentRow = 0
