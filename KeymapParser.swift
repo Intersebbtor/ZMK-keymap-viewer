@@ -90,23 +90,26 @@ class KeymapParser {
     
     /// Parse a ZMK keymap file and return a complete Keymap structure
     static func parse(from data: String) -> Keymap? {
+        // Remove comments before processing
+        let cleanedData = removeComments(from: data)
+        
         var layers: [KeymapLayer] = []
         var behaviors: [String: String] = [:]
         var macros: [String: String] = [:]
         
         // Parse behaviors
-        behaviors = parseBehaviors(from: data)
+        behaviors = parseBehaviors(from: cleanedData)
         
         // Parse macros
-        macros = parseMacros(from: data)
+        macros = parseMacros(from: cleanedData)
         
         // Find the keymap section
-        guard let keymapRange = findKeymapSection(in: data) else {
+        guard let keymapRange = findKeymapSection(in: cleanedData) else {
             print("Could not find keymap section")
             return nil
         }
         
-        let keymapContent = String(data[keymapRange])
+        let keymapContent = String(cleanedData[keymapRange])
         
         // Parse each layer
         layers = parseLayers(from: keymapContent)
@@ -123,6 +126,55 @@ class KeymapParser {
         }
         
         return Keymap(layers: layers, layout: layout, behaviors: behaviors, macros: macros)
+    }
+    
+    /// Remove C-style comments (// and /* */) from the data
+    private static func removeComments(from data: String) -> String {
+        var result = ""
+        var i = data.startIndex
+        
+        while i < data.endIndex {
+            let nextI = data.index(after: i)
+            
+            // Check for C++ style comment (//)
+            if i < data.index(data.endIndex, offsetBy: -1) && 
+               data[i] == "/" && data[nextI] == "/" {
+                // Skip until end of line
+                while i < data.endIndex && data[i] != "\n" {
+                    i = data.index(after: i)
+                }
+                // Keep the newline
+                if i < data.endIndex {
+                    result.append("\n")
+                    i = data.index(after: i)
+                }
+                continue
+            }
+            
+            // Check for C style comment (/* */)
+            if i < data.index(data.endIndex, offsetBy: -1) && 
+               data[i] == "/" && data[nextI] == "*" {
+                // Skip until */
+                i = data.index(after: nextI)
+                while i < data.index(data.endIndex, offsetBy: -1) {
+                    if data[i] == "*" && data[data.index(after: i)] == "/" {
+                        i = data.index(after: data.index(after: i))
+                        break
+                    }
+                    // Preserve newlines within comments for line tracking
+                    if data[i] == "\n" {
+                        result.append("\n")
+                    }
+                    i = data.index(after: i)
+                }
+                continue
+            }
+            
+            result.append(data[i])
+            i = data.index(after: i)
+        }
+        
+        return result
     }
     
     private static func findKeymapSection(in data: String) -> Range<String.Index>? {
