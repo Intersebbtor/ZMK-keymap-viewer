@@ -4,10 +4,6 @@
 
 ## Disclaimer: This app is completely based on AI-output.
 
-> **Quickly view your ZMK keyboard layers without leaving your workflow.**
-
-A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
-
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -124,11 +120,18 @@ Contributions welcome! Some ideas:
 - [ ] File picker for keymap insertion (could not get this to run, hence the file path solution)
 ---
 
+## 🙋 Looking for Collaborators!
+
+I can only do as much coding as I have AI credits in the bank, lol. If you're interested in contributing, improving, or maintaining this project, **please reach out!** Open an issue, submit a PR, or just fork it and make it better.
+
+---
+
 ## 📦 Built With
 
 - **SwiftUI + AppKit** - Native macOS experience
 - **Swift Package Manager** - Simple build system
 - **100% vibe coded with GitHub Copilot** ✨
+- Love and dedication for the community
 
 ---
 
@@ -137,13 +140,6 @@ Contributions welcome! Some ideas:
 **This tool was generated almost entirely by AI** (GitHub Copilot / Claude). While it works for me, you should treat it with the appropriate level of suspicion you'd give any AI-generated code. Use at your own risk, review the code if you're paranoid (you should be), and don't blame the robots when things go sideways.
 
 ---
-
-## 🙋 Looking for Collaborators!
-
-I can only do as much coding as I have AI credits in the bank, lol. If you're interested in contributing, improving, or maintaining this project, **please reach out!** Open an issue, submit a PR, or just fork it and make it better.
-
----
-
 ## 📄 License
 
 MIT © Intersebbtor
