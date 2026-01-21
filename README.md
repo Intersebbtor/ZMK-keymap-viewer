@@ -1,4 +1,7 @@
 # ZMK Keymap Viewer
+
+<img width="751" height="445" alt="image" src="https://github.com/user-attachments/assets/8ef192d5-8635-49d1-bfe4-c91883efd69c" />
+
 ## Disclaimer: This app is completely based on AI-output.
 
 > **Quickly view your ZMK keyboard layers without leaving your workflow.**
