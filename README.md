@@ -117,6 +117,8 @@ Contributions welcome! Some ideas:
 - [ ] Parse combos and macros
 - [ ] Export layout as image
 - [ ] Live file watching for auto-reload
+- [ ] Support for Windows and Linux
+- [ ] Support for QMK on top of ZMK
 - [ ] File picker for keymap insertion (could not get this to run, hence the file path solution)
 ---
 
