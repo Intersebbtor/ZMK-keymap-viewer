@@ -13,14 +13,20 @@ let package = Package(
         .executableTarget(
             name: "ZMKKeymapViewerApp",
             path: ".",
-            exclude: ["README.md", "AppDelegate.swift", "Sources", "Tests", "ZMK Keymap Viewer.app"],
+            exclude: ["README.md", "Scripts", "Tests", "ZMK Keymap Viewer.app"],
             sources: [
                 "ZMKKeymapViewer.swift",
+                "AppDelegate.swift",
                 "ContentView.swift",
                 "KeymapParser.swift",
                 "KeymapViewModel.swift",
                 "FileMonitor.swift"
             ]
+        ),
+        .testTarget(
+            name: "ZMKKeymapViewerTests",
+            dependencies: ["ZMKKeymapViewerApp"],
+            path: "Tests"
         )
     ]
 )
