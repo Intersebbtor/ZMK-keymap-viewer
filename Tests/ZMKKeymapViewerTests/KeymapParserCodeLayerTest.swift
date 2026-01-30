@@ -12,10 +12,10 @@ final class KeymapParserCodeLayerTest: XCTestCase {
         let bindings = KeymapParser.parseBindings(from: input)
         let display = bindings.map { $0.displayText }
         // Should parse all key bindings, not skip any valid lines
-        XCTAssertTrue(display.contains("N1"), "Should contain N1")
+        XCTAssertTrue(display.contains("1"), "Should contain 1")
         XCTAssertTrue(display.contains("RCMD"), "Should contain RCMD")
-        XCTAssertTrue(display.contains("LEFT_BRACKET"), "Should contain LEFT_BRACKET")
-        XCTAssertTrue(display.contains("trans"), "Should contain trans")
+        XCTAssertTrue(display.contains("["), "Should contain [")
+        XCTAssertTrue(display.contains("▽"), "Should contain ▽")
         XCTAssertEqual(bindings.count, 36, "Should parse 36 keys for code_layer")
     }
 }
