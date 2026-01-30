@@ -22,7 +22,8 @@ let package = Package(
                 "KeymapViewModel.swift",
                 "FileMonitor.swift",
                 "FloatingPanel.swift",
-                "HUDView.swift"
+                "HUDView.swift",
+                "GlobalShortcutManager.swift"
             ]
         ),
         .testTarget(

@@ -130,11 +130,17 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
+                        Text("Shortcut: ⌘ + Shift + K")
+                            .font(.caption2)
+                            .padding(.top, 4)
+                            .foregroundColor(.accentColor.opacity(0.8))
+                        
                         Button("Disable HUD Mode") {
                             appState.toggleHUD()
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .padding(.top, 4)
                     }
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
@@ -185,6 +191,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderless)
                 .font(.caption)
+                .help("Toggle HUD Mode (⌘+Shift+K)")
                 
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)

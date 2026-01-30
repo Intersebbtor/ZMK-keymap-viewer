@@ -58,6 +58,16 @@ class AppState: ObservableObject {
     init() {
         loadRecentKeymaps()
         setupActivityMonitor()
+        setupGlobalShortcut()
+    }
+    
+    private func setupGlobalShortcut() {
+        GlobalShortcutManager.shared.setup { [weak self] in
+            DispatchQueue.main.async {
+                print("[Shortcut] Hotkey triggered!")
+                self?.toggleHUD()
+            }
+        }
     }
     
     func setupActivityMonitor() {
@@ -96,11 +106,13 @@ class AppState: ObservableObject {
     func toggleHUD() {
         if let panel = floatingPanel {
             if panel.isVisible {
+                // If it's visible but faded, just wake it up instead of hiding?
+                // Actually, standard behavior is toggle.
                 panel.orderOut(nil)
                 isHUDModeEnabled = false
             } else {
+                resetInactivity() // Wake up immediately when showing
                 panel.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
                 isHUDModeEnabled = true
             }
         }
