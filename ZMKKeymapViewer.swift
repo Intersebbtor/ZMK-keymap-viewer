@@ -12,11 +12,9 @@ struct ZMKKeymapViewerApp: App {
     init() {
         print("[App] ZMKKeymapViewer starting...")
         
-        // Set up global exception handler for debugging
+        // Configuration minimale au démarrage
         NSSetUncaughtExceptionHandler { exception in
             print("[App] CRASH: \(exception)")
-            print("[App] Reason: \(exception.reason ?? "unknown")")
-            print("[App] Stack: \(exception.callStackSymbols.joined(separator: "\n"))")
         }
     }
     
@@ -36,6 +34,9 @@ struct ZMKKeymapViewerApp: App {
 }
 
 class AppState: ObservableObject {
+    // On garde une référence statique pour le raccourci global uniquement
+    private static var instance: AppState?
+    
     @Published var recentKeymaps: [String] = []
     @Published var updateAvailable: String? = nil
     @Published var isCheckingUpdate = false
@@ -46,7 +47,12 @@ class AppState: ObservableObject {
     @AppStorage("hudUseMaterial") var hudUseMaterial = true
     @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
     
+    // Global Shortcut Settings
+    @AppStorage("shortcutKeyCode") var shortcutKeyCode: Int = 40 // 'K'
+    @AppStorage("shortcutModifiers") var shortcutModifiers: Int = 768 // cmdKey | shiftKey (256 | 512)
+    
     @Published var isHUDInactive = false
+    @Published var isSettingsVisible = false
     private var activityTimer: Timer?
     private var eventMonitor: Any?
     
@@ -56,28 +62,40 @@ class AppState: ObservableObject {
     var floatingPanel: FloatingPanel?
     
     init() {
+        AppState.instance = self
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()
+        
+        // Initialisation différée du HUD pour ne pas bloquer le lancement
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.setupFloatingPanel(with: AnyView(HUDView().environmentObject(self)))
+        }
     }
     
-    private func setupGlobalShortcut() {
-        GlobalShortcutManager.shared.setup { [weak self] in
+    func setupGlobalShortcut() {
+        GlobalShortcutManager.shared.setup(
+            keyCode: UInt32(shortcutKeyCode),
+            modifiers: UInt32(shortcutModifiers)
+        ) {
             DispatchQueue.main.async {
                 print("[Shortcut] Hotkey triggered!")
-                self?.toggleHUD()
+                AppState.instance?.toggleHUD()
             }
         }
     }
     
+    func updateShortcut(keyCode: Int, modifiers: Int) {
+        shortcutKeyCode = keyCode
+        shortcutModifiers = modifiers
+        setupGlobalShortcut()
+    }
+    
     func setupActivityMonitor() {
-        // Monitor global events
-        // Note: Global .keyDown monitoring requires Accessibility permissions in System Settings
         eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] _ in
             self?.resetInactivity()
         }
         
-        // Also monitor local events (when the app has focus)
         NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
             self?.resetInactivity()
             return event
@@ -95,6 +113,9 @@ class AppState: ObservableObject {
         DispatchQueue.main.async {
             self.isHUDInactive = false
             self.activityTimer?.invalidate()
+            
+            guard self.hudTimeout > 0 else { return }
+            
             self.activityTimer = Timer.scheduledTimer(withTimeInterval: self.hudTimeout, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 1.0)) {
                     self?.isHUDInactive = true
@@ -106,12 +127,18 @@ class AppState: ObservableObject {
     func toggleHUD() {
         if let panel = floatingPanel {
             if panel.isVisible {
-                // If it's visible but faded, just wake it up instead of hiding?
-                // Actually, standard behavior is toggle.
                 panel.orderOut(nil)
                 isHUDModeEnabled = false
             } else {
-                resetInactivity() // Wake up immediately when showing
+                resetInactivity()
+                panel.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                isHUDModeEnabled = true
+            }
+        } else {
+            // Si le panel n'est pas encore prêt, on le force
+            self.setupFloatingPanel(with: AnyView(HUDView().environmentObject(self)))
+            if let panel = floatingPanel {
                 panel.makeKeyAndOrderFront(nil)
                 isHUDModeEnabled = true
             }
@@ -124,14 +151,10 @@ class AppState: ObservableObject {
                 view: view,
                 contentRect: NSRect(x: 100, y: 100, width: 700, height: 400)
             )
-            panel.center()
             floatingPanel = panel
             
-            // Auto-show if was enabled in previous session
             if isHUDModeEnabled {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    panel.makeKeyAndOrderFront(nil)
-                }
+                panel.makeKeyAndOrderFront(nil)
             }
         }
     }

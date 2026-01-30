@@ -9,15 +9,12 @@ class GlobalShortcutManager {
     
     private init() {}
     
-    func setup(callback: @escaping () -> Void) {
+    func setup(keyCode: UInt32, modifiers: UInt32, callback: @escaping () -> Void) {
+        unregister()
+        
         var hotKeyID = EventHotKeyID()
         hotKeyID.signature = OSType(0x5a4d4b56) // 'ZMKV'
         hotKeyID.id = UInt32(1)
-        
-        // Key code for 'K' = 40
-        // Modifiers: Shift (0x0200) + Command (0x0100) = 0x0300
-        let modifiers = UInt32(shiftKey | cmdKey)
-        let keyCode = UInt32(40) // 'K'
         
         var eventType = EventTypeSpec()
         eventType.eventClass = OSType(kEventClassKeyboard)
@@ -37,16 +34,21 @@ class GlobalShortcutManager {
         let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
         
         if status == noErr {
-            print("[Shortcut] Successfully registered Command+Shift+K")
+            print("[Shortcut] Successfully registered shortcut (code: \(keyCode), mods: \(modifiers))")
         } else {
             print("[Shortcut] Failed to register hotkey: \(status)")
         }
     }
     
-    deinit {
+    func unregister() {
         if let ref = hotKeyRef {
             UnregisterEventHotKey(ref)
+            hotKeyRef = nil
         }
+    }
+    
+    deinit {
+        unregister()
     }
 }
 

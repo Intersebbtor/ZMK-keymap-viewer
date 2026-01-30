@@ -24,7 +24,12 @@ class FloatingPanel: NSPanel {
         self.isOpaque = false
         self.hasShadow = true
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
+        // Configuration de la sauvegarde automatique de la position
         self.setFrameAutosaveName("ZMKKeymapHUD")
+        
+        // Tenter de restaurer la position précédente, sinon utiliser le défaut
+        _ = self.setFrameUsingName("ZMKKeymapHUD")
         
         let hostingView = NSHostingView(rootView: view)
         self.contentView = hostingView
