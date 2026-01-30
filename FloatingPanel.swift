@@ -1,0 +1,32 @@
+import SwiftUI
+import AppKit
+
+class FloatingPanel: NSPanel {
+    init(view: AnyView, contentRect: NSRect) {
+        super.init(
+            contentRect: contentRect,
+            styleMask: [.nonactivatingPanel, .resizable, .titled, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        
+        self.titleVisibility = .hidden
+        self.titlebarAppearsTransparent = true
+        self.isMovableByWindowBackground = true
+        self.isFloatingPanel = true
+        self.level = .floating
+        self.isReleasedWhenClosed = false
+        self.standardWindowButton(.closeButton)?.isHidden = true
+        self.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        self.standardWindowButton(.zoomButton)?.isHidden = true
+        
+        self.backgroundColor = .clear
+        self.isOpaque = false
+        self.hasShadow = true
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.setFrameAutosaveName("ZMKKeymapHUD")
+        
+        let hostingView = NSHostingView(rootView: view)
+        self.contentView = hostingView
+    }
+}

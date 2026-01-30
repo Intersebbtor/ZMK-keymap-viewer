@@ -1,5 +1,60 @@
 import SwiftUI
 
+// MARK: - VisualEffectView for background blur
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Keymap Grid View Component
+
+struct KeyboardGridView: View {
+    let layer: KeymapLayer
+    let layout: KeyboardLayout
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Main rows (Keys per row)
+            ForEach(0..<layout.rowCount - (layout.hasThumbCluster ? 1 : 0), id: \.self) { row in
+                HStack(spacing: 12) {
+                    ForEach(getBindingsForRow(row)) { binding in
+                        KeyView(binding: binding, isThumbKey: false)
+                            .frame(width: 58, height: 52)
+                    }
+                }
+            }
+            
+            // Thumb cluster row
+            if layout.hasThumbCluster {
+                HStack(spacing: 16) {
+                    ForEach(getBindingsForRow(layout.rowCount - 1)) { binding in
+                        KeyView(binding: binding, isThumbKey: true)
+                            .frame(width: 60, height: 54)
+                    }
+                }
+                .padding(.top, 12)
+            }
+        }
+    }
+    
+    private func getBindingsForRow(_ row: Int) -> [KeyBinding] {
+        return layer.bindings.filter { $0.row == row }.sorted { $0.column < $1.column }
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = KeymapViewModel()
@@ -14,15 +69,38 @@ struct ContentView: View {
             Divider()
             
             if viewModel.keymap != nil {
-                // Layer tabs
-                layerTabsView
-                
-                // Keymap visualization
-                ScrollView([.horizontal, .vertical], showsIndicators: true) {
-                    keymapVisualizationView
-                        .padding()
+                if appState.isHUDModeEnabled {
+                    VStack(spacing: 8) {
+                        Image(systemName: "window.shade.closed")
+                            .font(.system(size: 24))
+                            .foregroundColor(.accentColor)
+                        Text("HUD Mode is Active")
+                            .font(.headline)
+                        Text("The keymap is now displayed in the floating window.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button("Disable HUD Mode") {
+                            appState.toggleHUD()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    // Layer tabs
+                    layerTabsView
+                    
+                    // Keymap visualization
+                    ZStack {
+                        if let keymap = viewModel.keymap, let layer = keymap.layers[safe: selectedLayerIndex] {
+                            KeyboardGridView(layer: layer, layout: keymap.layout)
+                                .scaleEffect(calculateScale(for: keymap.layout))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 emptyStateView
             }
@@ -52,6 +130,12 @@ struct ContentView: View {
                 
                 Spacer()
                 
+                Button(action: { appState.toggleHUD() }) {
+                    Label("HUD Mode", systemImage: appState.isHUDModeEnabled ? "window.shade.closed" : "window.shade.open")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
@@ -59,8 +143,10 @@ struct ContentView: View {
                 .font(.caption)
             }
             .padding(8)
+            .padding(.bottom, 8) 
         }
-        .frame(minWidth: 750, minHeight: 450)
+        .frame(minWidth: 750)
+        .frame(minHeight: appState.isHUDModeEnabled ? 260 : 500)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             print("[ContentView] onAppear triggered")
@@ -73,6 +159,15 @@ struct ContentView: View {
                 print("[ContentView] No recent keymaps found")
             }
         }
+    }
+    
+    private func calculateScale(for layout: KeyboardLayout) -> CGFloat {
+        let maxKeysInRow = CGFloat(layout.keysPerRow.max() ?? 10)
+        let totalWidthNeeded = (maxKeysInRow * 55) + ((maxKeysInRow - 1) * 8) + 40
+        if totalWidthNeeded > 750 {
+            return 710 / totalWidthNeeded
+        }
+        return 1.0
     }
     
     private var headerView: some View {
@@ -119,6 +214,43 @@ struct ContentView: View {
                     }
                     .menuStyle(.borderlessButton)
                 }
+            }
+            
+            // HUD Settings (Moved out of Menu for better interaction)
+            if appState.isHUDModeEnabled {
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        Toggle("Blur", isOn: $appState.hudUseMaterial)
+                            .toggleStyle(.checkbox)
+                        
+                        Divider().frame(height: 12)
+                        
+                        HStack {
+                            Image(systemName: "sun.min")
+                            Slider(value: $appState.hudOpacity, in: 0.2...1.0)
+                                .frame(width: 80)
+                            Image(systemName: "sun.max")
+                        }
+                        
+                        Divider().frame(height: 12)
+                        
+                        HStack {
+                            Image(systemName: "timer")
+                            Slider(value: $appState.hudTimeout, in: 1.0...10.0)
+                                .frame(width: 80)
+                            Text("\(Int(appState.hudTimeout))s")
+                                .frame(width: 25, alignment: .leading)
+                        }
+                        
+                        Spacer()
+                    }
+                    .font(.caption2)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(4)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
             
             // Persistent path text field
@@ -322,17 +454,17 @@ struct KeyView: View {
     var body: some View {
         ZStack {
             // Key background
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(keyBackgroundColor)
-                .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             
             // Key border
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isHovered ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: isHovered ? 2 : 1)
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(isHovered ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isHovered ? 2 : 1)
             
             // Key label
             Text(binding.displayText)
-                .font(.system(size: fontSize, weight: .medium, design: .rounded))
+                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                 .foregroundColor(textColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)

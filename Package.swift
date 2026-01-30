@@ -20,7 +20,9 @@ let package = Package(
                 "ContentView.swift",
                 "KeymapParser.swift",
                 "KeymapViewModel.swift",
-                "FileMonitor.swift"
+                "FileMonitor.swift",
+                "FloatingPanel.swift",
+                "HUDView.swift"
             ]
         ),
         .testTarget(

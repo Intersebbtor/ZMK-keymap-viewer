@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 let appVersion = "1.0.4"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
@@ -12,9 +13,9 @@ struct ZMKKeymapViewerApp: App {
         
         // Set up global exception handler for debugging
         NSSetUncaughtExceptionHandler { exception in
-            print("[App] CRASH: \\(exception)")
-            print("[App] Reason: \\(exception.reason ?? \"unknown\")")
-            print("[App] Stack: \\(exception.callStackSymbols.joined(separator: \"\\n\"))")
+            print("[App] CRASH: \(exception)")
+            print("[App] Reason: \(exception.reason ?? "unknown")")
+            print("[App] Stack: \(exception.callStackSymbols.joined(separator: "\n"))")
         }
     }
     
@@ -22,6 +23,9 @@ struct ZMKKeymapViewerApp: App {
         MenuBarExtra {
             ContentView()
                 .environmentObject(appState)
+                .onAppear {
+                    appState.setupFloatingPanel(with: AnyView(HUDView().environmentObject(appState)))
+                }
         } label: {
             Image(systemName: "keyboard")
         }
@@ -34,11 +38,93 @@ class AppState: ObservableObject {
     @Published var updateAvailable: String? = nil
     @Published var isCheckingUpdate = false
     
+    // HUD Settings
+    @AppStorage("isHUDModeEnabled") var isHUDModeEnabled = false
+    @AppStorage("hudOpacity") var hudOpacity: Double = 0.9
+    @AppStorage("hudUseMaterial") var hudUseMaterial = true
+    @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
+    
+    @Published var isHUDInactive = false
+    private var activityTimer: Timer?
+    private var eventMonitor: Any?
+    
     private let recentKeymapsKey = "recentKeymaps"
     private let maxRecentKeymaps = 5
     
+    var floatingPanel: FloatingPanel?
+    
     init() {
         loadRecentKeymaps()
+        setupActivityMonitor()
+    }
+    
+    func setupActivityMonitor() {
+        // Monitor global events
+        // Note: Global .keyDown monitoring requires Accessibility permissions in System Settings
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] _ in
+            self?.resetInactivity()
+        }
+        
+        // Also monitor local events (when the app has focus)
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
+            self?.resetInactivity()
+            return event
+        }
+        
+        resetInactivity()
+        
+        // Check for accessibility permissions once at startup (informational)
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        print("[App] Accessibility status: \(accessEnabled)")
+    }
+    
+    func resetInactivity() {
+        DispatchQueue.main.async {
+            self.isHUDInactive = false
+            self.activityTimer?.invalidate()
+            self.activityTimer = Timer.scheduledTimer(withTimeInterval: self.hudTimeout, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    self?.isHUDInactive = true
+                }
+            }
+        }
+    }
+    
+    func toggleHUD() {
+        if let panel = floatingPanel {
+            if panel.isVisible {
+                panel.orderOut(nil)
+                isHUDModeEnabled = false
+            } else {
+                panel.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                isHUDModeEnabled = true
+            }
+        }
+    }
+    
+    func setupFloatingPanel(with view: AnyView) {
+        if floatingPanel == nil {
+            let panel = FloatingPanel(
+                view: view,
+                contentRect: NSRect(x: 100, y: 100, width: 700, height: 400)
+            )
+            panel.center()
+            floatingPanel = panel
+            
+            // Auto-show if was enabled in previous session
+            if isHUDModeEnabled {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    panel.makeKeyAndOrderFront(nil)
+                }
+            }
+        }
+    }
+    
+    // Helper to reset size to current layout if needed
+    func resetHUDSize() {
+        // This can be called from UI to snap back to ideal size
     }
     
     func loadRecentKeymaps() {
