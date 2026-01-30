@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HUDView: View {
     @EnvironmentObject var appState: AppState
-    @StateObject private var viewModel = KeymapViewModel()
+    @EnvironmentObject var viewModel: KeymapViewModel
     @State private var selectedLayerIndex: Int = 0
     
     var body: some View {
@@ -95,11 +95,6 @@ struct HUDView: View {
         .opacity(appState.isHUDInactive ? 0.15 : appState.hudOpacity)
         .scaleEffect(appState.isHUDInactive ? 0.98 : 1.0)
         .animation(.easeInOut(duration: 0.8), value: appState.isHUDInactive)
-        .onAppear {
-            if let mostRecent = appState.recentKeymaps.first {
-                viewModel.loadKeymap(from: mostRecent)
-            }
-        }
     }
     
     private func calculateScale(for layout: KeyboardLayout, in size: CGSize) -> CGFloat {

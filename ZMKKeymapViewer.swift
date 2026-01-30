@@ -7,6 +7,7 @@ let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 @main
 struct ZMKKeymapViewerApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var keymapViewModel = KeymapViewModel()
     
     init() {
         print("[App] ZMKKeymapViewer starting...")
@@ -23,8 +24,9 @@ struct ZMKKeymapViewerApp: App {
         MenuBarExtra {
             ContentView()
                 .environmentObject(appState)
+                .environmentObject(keymapViewModel)
                 .onAppear {
-                    appState.setupFloatingPanel(with: AnyView(HUDView().environmentObject(appState)))
+                    appState.setupFloatingPanel(with: AnyView(HUDView().environmentObject(appState).environmentObject(keymapViewModel)))
                 }
         } label: {
             Image(systemName: "keyboard")
