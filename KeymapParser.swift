@@ -109,21 +109,31 @@ class KeymapParser {
             return nil
         }
         
-        let keymapContent = String(cleanedData[keymapRange])
+        var keymapContent = String(cleanedData[keymapRange])
+        
+        // Strip the outer "keymap { ... }" to avoid matching "keymap" as a layer
+        if let firstBrace = keymapContent.firstIndex(of: "{"),
+           let lastBrace = keymapContent.lastIndex(of: "}") {
+            let start = keymapContent.index(after: firstBrace)
+            let end = lastBrace
+            if start < end {
+                keymapContent = String(keymapContent[start..<end])
+            }
+        }
         
         // Parse each layer
         layers = parseLayers(from: keymapContent)
         
-        // Detect layout from first layer
-        let layout: KeyboardLayout
-        if let firstLayer = layers.first {
-            let keysPerRow = calculateKeysPerRow(bindings: firstLayer.bindings)
-            layout = KeyboardLayout.detect(fromKeyCount: firstLayer.bindings.count, keysPerRow: keysPerRow)
-            print("[KeymapParser] Detected: \(layout.name) with \(layers.count) layers, \(firstLayer.bindings.count) keys")
-        } else {
-            print("[KeymapParser] No layers found, defaulting to Sweep")
-            layout = .sweep
+        // If no layers found, return nil
+        if layers.isEmpty {
+            return nil
         }
+        
+        // Detect layout from first layer
+        let firstLayer = layers[0]
+        let keysPerRow = calculateKeysPerRow(bindings: firstLayer.bindings)
+        let layout = KeyboardLayout.detect(fromKeyCount: firstLayer.bindings.count, keysPerRow: keysPerRow)
+        print("[KeymapParser] Detected: \(layout.name) with \(layers.count) layers, \(firstLayer.bindings.count) keys")
         
         return Keymap(layers: layers, layout: layout, behaviors: behaviors, macros: macros)
     }
@@ -269,11 +279,11 @@ class KeymapParser {
     private static func parseLayers(from keymapContent: String) -> [KeymapLayer] {
         var layers: [KeymapLayer] = []
         
-        // Pattern to match layer definitions
-        // Use .*? (non-greedy) to match any content between { and bindings,
-        // including comments and whitespace. This handles keymaps with or without
-        // label/display-name, and with comments before bindings.
-        let layerPattern = "(\\w+)\\s*\\{.*?(?:(?:label|display-name)\\s*=\\s*\"([^\"]*)\"\\s*;)?.*?bindings\\s*=\\s*<(.*?)>\\s*;"
+        // Match layer definition block
+        // Group 1: Layer ID (e.g. default_layer)
+        // Group 2: Content before bindings (where label might be)
+        // Group 3: Bindings content
+        let layerPattern = "(\\w+)\\s*\\{([^}]*?)bindings\\s*=\\s*<(.*?)>\\s*;"
         guard let regex = try? NSRegularExpression(pattern: layerPattern, options: [.dotMatchesLineSeparators]) else {
             return layers
         }
@@ -284,11 +294,18 @@ class KeymapParser {
         for match in matches {
             guard match.numberOfRanges >= 4 else { continue }
             
-            let layerName = match.range(at: 2).location != NSNotFound
-                ? nsContent.substring(with: match.range(at: 2))
-                : nsContent.substring(with: match.range(at: 1))
-            
+            let layerId = nsContent.substring(with: match.range(at: 1))
+            let preBindingsContent = nsContent.substring(with: match.range(at: 2))
             let bindingsRaw = nsContent.substring(with: match.range(at: 3))
+            
+            // Try to find label in pre-bindings content
+            var layerName = layerId
+            let labelPattern = "(?:label|display-name)\\s*=\\s*\"([^\"]*)\""
+            if let labelRegex = try? NSRegularExpression(pattern: labelPattern, options: []),
+               let labelMatch = labelRegex.firstMatch(in: preBindingsContent, options: [], range: NSRange(location: 0, length: preBindingsContent.count)) {
+                layerName = (preBindingsContent as NSString).substring(with: labelMatch.range(at: 1))
+            }
+            
             let bindings = parseBindings(from: bindingsRaw)
             
             let keysPerRow = calculateKeysPerRow(bindings: bindings)
@@ -315,7 +332,8 @@ class KeymapParser {
         return line
     }
     
-    private static func parseBindings(from bindingsRaw: String) -> [KeyBinding] {
+    /// Parse the raw bindings content of a layer
+    static func parseBindings(from bindingsRaw: String) -> [KeyBinding] {
         var bindings: [KeyBinding] = []
         
         // Split by newlines first to preserve row structure
@@ -579,7 +597,9 @@ class KeymapParser {
             "EQUAL": "=",
             "PLUS": "+",
             "LBKT": "[",
+            "LEFT_BRACKET": "[",
             "RBKT": "]",
+            "RIGHT_BRACKET": "]",
             "LBRC": "{",
             "RBRC": "}",
             "LPAR": "(",
