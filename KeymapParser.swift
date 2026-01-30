@@ -49,12 +49,34 @@ struct KeyboardLayout: Equatable {
         name: "Corne"
     )
     
+    static let sofle = KeyboardLayout(
+        totalKeys: 48,
+        keysPerRow: [12, 12, 12, 12],
+        rowCount: 4,
+        hasThumbCluster: true,
+        thumbKeysCount: 12,
+        name: "Sofle"
+    )
+    
+    static let lily58Pro = KeyboardLayout(
+        totalKeys: 60,
+        keysPerRow: [12, 12, 12, 14, 10],
+        rowCount: 5,
+        hasThumbCluster: true,
+        thumbKeysCount: 10,
+        name: "Lily58 Pro"
+    )
+    
     static func detect(fromKeyCount count: Int, keysPerRow: [Int]) -> KeyboardLayout {
         // Try to match known layouts
         if count == 34 {
             return .sweep
         } else if count == 42 {
             return .corne
+        } else if count == 48 {
+            return .sofle
+        } else if count == 60 {
+            return .lily58Pro
         }
         
         // Create a custom layout based on detected keys

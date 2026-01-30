@@ -25,28 +25,78 @@ struct KeyboardGridView: View {
     let layer: KeymapLayer
     let layout: KeyboardLayout
     
+    private var keyWidth: CGFloat {
+        layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
+    }
+    private let keyHeight: CGFloat = 44
+    private let keySpacing: CGFloat = 3
+    private let splitGap: CGFloat = 30
+    
     var body: some View {
-        VStack(spacing: 12) {
-            // Main rows (Keys per row)
-            ForEach(0..<layout.rowCount - (layout.hasThumbCluster ? 1 : 0), id: \.self) { row in
-                HStack(spacing: 12) {
-                    ForEach(getBindingsForRow(row)) { binding in
-                        KeyView(binding: binding, isThumbKey: false)
-                            .frame(width: 58, height: 52)
+        VStack(alignment: .center, spacing: keySpacing) {
+            ForEach(0..<layout.rowCount, id: \.self) { rowIndex in
+                rowView(for: rowIndex)
+            }
+        }
+    }
+    
+    private func rowView(for rowIndex: Int) -> some View {
+        let keysInRow = layout.keysPerRow[safe: rowIndex] ?? 0
+        let maxKeysInRow = layout.keysPerRow.max() ?? 0
+        let bindings = getBindingsForRow(rowIndex)
+        let isThumbRow = rowIndex == layout.rowCount - 1 && layout.hasThumbCluster
+        let halfCount = keysInRow / 2
+        
+        // For thumb row: add external padding. For other rows: increase gap
+        let keysDifference = maxKeysInRow - keysInRow
+        let extraGap = isThumbRow ? 0 : CGFloat(keysDifference) * (keyWidth + keySpacing)
+        let externalPadding = isThumbRow ? CGFloat(keysDifference / 2) * (keyWidth + keySpacing) : 0
+        let totalGap = isThumbRow ? splitGap + 20 : splitGap
+        let adjustedGap = totalGap + extraGap
+        
+        let rowContent = HStack(spacing: keySpacing) {
+            // Left half
+            HStack(spacing: keySpacing) {
+                ForEach(0..<halfCount, id: \.self) { colIndex in
+                    if let binding = bindings[safe: colIndex] {
+                        KeyView(binding: binding, isThumbKey: isThumbRow)
+                            .frame(width: keyWidth, height: keyHeight)
                     }
                 }
             }
             
-            // Thumb cluster row
-            if layout.hasThumbCluster {
-                HStack(spacing: 16) {
-                    ForEach(getBindingsForRow(layout.rowCount - 1)) { binding in
-                        KeyView(binding: binding, isThumbKey: true)
-                            .frame(width: 60, height: 54)
+            // Gap between halves - wider for non-thumb rows with fewer keys
+            Spacer()
+                .frame(width: adjustedGap)
+            
+            // Right half
+            HStack(spacing: keySpacing) {
+                ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
+                    if let binding = bindings[safe: colIndex] {
+                        KeyView(binding: binding, isThumbKey: isThumbRow)
+                            .frame(width: keyWidth, height: keyHeight)
                     }
                 }
-                .padding(.top, 12)
             }
+        }
+        
+        // Add external padding for thumb row if needed
+        if externalPadding > 0 {
+            return AnyView(
+                HStack(spacing: 0) {
+                    Spacer()
+                        .frame(width: externalPadding)
+                    rowContent
+                    Spacer()
+                        .frame(width: externalPadding)
+                }
+                .padding(.top, isThumbRow ? 8 : 0)
+            )
+        } else {
+            return AnyView(
+                rowContent
+                    .padding(.top, isThumbRow ? 8 : 0)
+            )
         }
     }
     
@@ -57,7 +107,7 @@ struct KeyboardGridView: View {
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-    @StateObject private var viewModel = KeymapViewModel()
+    @EnvironmentObject var viewModel: KeymapViewModel
     @State private var selectedLayerIndex: Int = 0
     @State private var pathText: String = ""
     
@@ -556,6 +606,14 @@ struct TooltipView: View {
 
 extension Array {
     subscript(safe index: Int) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}
+
+// MARK: - Array Safe Subscript Extension
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
     }
 }
