@@ -9,7 +9,7 @@ final class KeymapParserFirstLineTest: XCTestCase {
 """
         let bindings = KeymapParser.parseBindings(from: input)
         let display = bindings.map { $0.displayText }
-        XCTAssertEqual(display, ["N1", "N2", "N3", "N4", "N5", "N6"], "Should include all keys, including the first line")
+        XCTAssertEqual(display, ["1", "2", "3", "4", "5", "6"], "Should include all keys, including the first line")
     }
     func testFirstLineWithCommentAbove() {
         let input = """
@@ -19,6 +19,6 @@ final class KeymapParserFirstLineTest: XCTestCase {
 """
         let bindings = KeymapParser.parseBindings(from: input)
         let display = bindings.map { $0.displayText }
-        XCTAssertEqual(display, ["N1", "N2", "N3", "N4", "N5", "N6"], "Should include all keys, even with a comment above")
+        XCTAssertEqual(display, ["1", "2", "3", "4", "5", "6"], "Should include all keys, even with a comment above")
     }
 }

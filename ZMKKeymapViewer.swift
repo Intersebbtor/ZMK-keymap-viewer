@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 let appVersion = "1.0.4"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
@@ -6,15 +7,14 @@ let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 @main
 struct ZMKKeymapViewerApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var keymapViewModel = KeymapViewModel()
     
     init() {
         print("[App] ZMKKeymapViewer starting...")
         
-        // Set up global exception handler for debugging
+        // Configuration minimale au démarrage
         NSSetUncaughtExceptionHandler { exception in
-            print("[App] CRASH: \\(exception)")
-            print("[App] Reason: \\(exception.reason ?? \"unknown\")")
-            print("[App] Stack: \\(exception.callStackSymbols.joined(separator: \"\\n\"))")
+            print("[App] CRASH: \(exception)")
         }
     }
     
@@ -22,6 +22,11 @@ struct ZMKKeymapViewerApp: App {
         MenuBarExtra {
             ContentView()
                 .environmentObject(appState)
+                .environmentObject(keymapViewModel)
+                .onAppear {
+                    appState.keymapViewModel = keymapViewModel
+                    appState.setupHUDPanel(with: keymapViewModel)
+                }
         } label: {
             Image(systemName: "keyboard")
         }
@@ -30,15 +35,141 @@ struct ZMKKeymapViewerApp: App {
 }
 
 class AppState: ObservableObject {
+    // On garde une référence statique pour le raccourci global uniquement
+    private static var instance: AppState?
+    
     @Published var recentKeymaps: [String] = []
     @Published var updateAvailable: String? = nil
     @Published var isCheckingUpdate = false
     
+    // HUD Settings
+    @AppStorage("isHUDModeEnabled") var isHUDModeEnabled = false
+    @AppStorage("hudOpacity") var hudOpacity: Double = 0.9
+    @AppStorage("hudUseMaterial") var hudUseMaterial = true
+    @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
+    
+    // Global Shortcut Settings
+    @AppStorage("shortcutKeyCode") var shortcutKeyCode: Int = 40 // 'K'
+    @AppStorage("shortcutModifiers") var shortcutModifiers: Int = 768 // cmdKey | shiftKey (256 | 512)
+    
+    @Published var isHUDInactive = false
+    @Published var isSettingsVisible = false
+    private var activityTimer: Timer?
+    private var eventMonitor: Any?
+    
     private let recentKeymapsKey = "recentKeymaps"
     private let maxRecentKeymaps = 5
     
+    var floatingPanel: FloatingPanel?
+    
+    var keymapViewModel: KeymapViewModel?
+    
     init() {
+        AppState.instance = self
         loadRecentKeymaps()
+        setupActivityMonitor()
+        setupGlobalShortcut()
+        
+        // Initialisation différée du HUD pour ne pas bloquer le lancement
+        // Le keymapViewModel sera assigné depuis ZMKKeymapViewerApp
+    }
+    
+    func setupGlobalShortcut() {
+        GlobalShortcutManager.shared.setup(
+            keyCode: UInt32(shortcutKeyCode),
+            modifiers: UInt32(shortcutModifiers)
+        ) {
+            DispatchQueue.main.async {
+                print("[Shortcut] Hotkey triggered!")
+                AppState.instance?.toggleHUD()
+            }
+        }
+    }
+    
+    func updateShortcut(keyCode: Int, modifiers: Int) {
+        shortcutKeyCode = keyCode
+        shortcutModifiers = modifiers
+        setupGlobalShortcut()
+    }
+    
+    func setupActivityMonitor() {
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] _ in
+            self?.resetInactivity()
+        }
+        
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
+            self?.resetInactivity()
+            return event
+        }
+        
+        resetInactivity()
+        
+        // Check for accessibility permissions once at startup (informational)
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        print("[App] Accessibility status: \(accessEnabled)")
+    }
+    
+    func resetInactivity() {
+        DispatchQueue.main.async {
+            self.isHUDInactive = false
+            self.activityTimer?.invalidate()
+            
+            guard self.hudTimeout > 0 else { return }
+            
+            self.activityTimer = Timer.scheduledTimer(withTimeInterval: self.hudTimeout, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    self?.isHUDInactive = true
+                }
+            }
+        }
+    }
+    
+    func toggleHUD() {
+        if let panel = floatingPanel {
+            if panel.isVisible {
+                panel.orderOut(nil)
+                isHUDModeEnabled = false
+            } else {
+                resetInactivity()
+                panel.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                isHUDModeEnabled = true
+            }
+        } else {
+            // Si le panel n'est pas encore prêt, on le force
+            if let keymapVM = keymapViewModel {
+                setupHUDPanel(with: keymapVM)
+                if let panel = floatingPanel {
+                    panel.makeKeyAndOrderFront(nil)
+                    isHUDModeEnabled = true
+                }
+            }
+        }
+    }
+    
+    func setupFloatingPanel(with view: AnyView) {
+        if floatingPanel == nil {
+            let panel = FloatingPanel(
+                view: view,
+                contentRect: NSRect(x: 100, y: 100, width: 700, height: 400)
+            )
+            floatingPanel = panel
+            
+            if isHUDModeEnabled {
+                panel.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
+    
+    func setupHUDPanel(with keymapViewModel: KeymapViewModel) {
+        let hudView = HUDView().environmentObject(self).environmentObject(keymapViewModel)
+        self.setupFloatingPanel(with: AnyView(hudView))
+    }
+    
+    // Helper to reset size to current layout if needed
+    func resetHUDSize() {
+        // This can be called from UI to snap back to ideal size
     }
     
     func loadRecentKeymaps() {
