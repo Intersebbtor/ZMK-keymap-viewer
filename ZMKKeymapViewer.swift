@@ -24,7 +24,8 @@ struct ZMKKeymapViewerApp: App {
                 .environmentObject(appState)
                 .environmentObject(keymapViewModel)
                 .onAppear {
-                    appState.setupFloatingPanel(with: AnyView(HUDView().environmentObject(appState).environmentObject(keymapViewModel)))
+                    appState.keymapViewModel = keymapViewModel
+                    appState.setupHUDPanel(with: keymapViewModel)
                 }
         } label: {
             Image(systemName: "keyboard")
@@ -61,6 +62,8 @@ class AppState: ObservableObject {
     
     var floatingPanel: FloatingPanel?
     
+    var keymapViewModel: KeymapViewModel?
+    
     init() {
         AppState.instance = self
         loadRecentKeymaps()
@@ -68,9 +71,7 @@ class AppState: ObservableObject {
         setupGlobalShortcut()
         
         // Initialisation différée du HUD pour ne pas bloquer le lancement
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.setupFloatingPanel(with: AnyView(HUDView().environmentObject(self)))
-        }
+        // Le keymapViewModel sera assigné depuis ZMKKeymapViewerApp
     }
     
     func setupGlobalShortcut() {
@@ -137,10 +138,12 @@ class AppState: ObservableObject {
             }
         } else {
             // Si le panel n'est pas encore prêt, on le force
-            self.setupFloatingPanel(with: AnyView(HUDView().environmentObject(self)))
-            if let panel = floatingPanel {
-                panel.makeKeyAndOrderFront(nil)
-                isHUDModeEnabled = true
+            if let keymapVM = keymapViewModel {
+                setupHUDPanel(with: keymapVM)
+                if let panel = floatingPanel {
+                    panel.makeKeyAndOrderFront(nil)
+                    isHUDModeEnabled = true
+                }
             }
         }
     }
@@ -157,6 +160,11 @@ class AppState: ObservableObject {
                 panel.makeKeyAndOrderFront(nil)
             }
         }
+    }
+    
+    func setupHUDPanel(with keymapViewModel: KeymapViewModel) {
+        let hudView = HUDView().environmentObject(self).environmentObject(keymapViewModel)
+        self.setupFloatingPanel(with: AnyView(hudView))
     }
     
     // Helper to reset size to current layout if needed

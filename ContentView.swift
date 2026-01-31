@@ -47,12 +47,17 @@ struct KeyboardGridView: View {
         let isThumbRow = rowIndex == layout.rowCount - 1 && layout.hasThumbCluster
         let halfCount = keysInRow / 2
         
-        // For thumb row: add external padding. For other rows: increase gap
+        // Calculate adjustments based on row type
         let keysDifference = maxKeysInRow - keysInRow
-        let extraGap = isThumbRow ? 0 : CGFloat(keysDifference) * (keyWidth + keySpacing)
-        let externalPadding = isThumbRow ? CGFloat(keysDifference / 2) * (keyWidth + keySpacing) : 0
+        let oneKeyWidth = keyWidth + keySpacing
+        
+        // For non-thumb rows with fewer keys: increase gap in the middle
+        let extraGap = !isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference) * oneKeyWidth : 0
         let totalGap = isThumbRow ? splitGap + 20 : splitGap
         let adjustedGap = totalGap + extraGap
+        
+        // For thumb row: add symmetric external padding
+        let externalPadding = isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference / 2) * oneKeyWidth : 0
         
         let rowContent = HStack(spacing: keySpacing) {
             // Left half
@@ -152,12 +157,11 @@ struct ContentView: View {
                     .controlSize(.small)
                 } else {
                     Button(action: { appState.checkForUpdates() }) {
-                        Image(systemName: "arrow.clockwise")
+                        Text("Check for updates")
                             .font(.caption)
                     }
                     .buttonStyle(.borderless)
                     .disabled(appState.isCheckingUpdate)
-                    .help("Check for Updates")
                 }
                 
                 Text("v\(appVersion)")
@@ -214,8 +218,9 @@ struct ContentView: View {
         let keyWidth: CGFloat = layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
         let keySpacing: CGFloat = 3
         let splitGap: CGFloat = 30
+        let horizontalPadding: CGFloat = 40 // 20px on each side
         
-        let totalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 2) * keySpacing) + splitGap + 60
+        let totalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap + horizontalPadding
         return max(700, totalWidth)
     }
 
@@ -351,11 +356,11 @@ struct ContentView: View {
                 let layer = keymap.layers[selectedLayerIndex]
                 let layout = keymap.layout
                 
-                DynamicKeyboardView(
+                KeyboardGridView(
                     layer: layer,
                     layout: layout
                 )
-                .padding(.vertical, 20)
+                .padding(20)
             }
         }
     }
@@ -605,69 +610,6 @@ struct ContentView: View {
 }
 
 
-
-// MARK: - Dynamic Keyboard View
-
-struct DynamicKeyboardView: View {
-    let layer: KeymapLayer
-    let layout: KeyboardLayout
-    
-    // Key sizing - dynamically sized based on layout
-    private var keyWidth: CGFloat {
-        // Smaller keys for layouts with more keys per row
-        layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
-    }
-    private let keyHeight: CGFloat = 44
-    private let keySpacing: CGFloat = 3
-    private let splitGap: CGFloat = 30  // Gap between left and right halves
-    
-    var body: some View {
-        VStack(alignment: .center, spacing: keySpacing) {
-            ForEach(0..<layout.rowCount, id: \.self) { rowIndex in
-                rowView(for: rowIndex)
-            }
-        }
-    }
-    
-    private func rowView(for rowIndex: Int) -> some View {
-        let keysInRow = layout.keysPerRow[safe: rowIndex] ?? 0
-        let halfCount = keysInRow / 2
-        let bindings = getBindingsForRow(rowIndex)
-        
-        let isThumbRow = rowIndex == layout.rowCount - 1 && layout.hasThumbCluster
-        
-        return HStack(spacing: keySpacing) {
-            // Left half
-            HStack(spacing: keySpacing) {
-                ForEach(0..<halfCount, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        KeyView(binding: binding, isThumbKey: isThumbRow)
-                            .frame(width: keyWidth, height: keyHeight)
-                    }
-                }
-            }
-            
-            // Gap between halves
-            Spacer()
-                .frame(width: isThumbRow ? splitGap + 20 : splitGap)
-            
-            // Right half
-            HStack(spacing: keySpacing) {
-                ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        KeyView(binding: binding, isThumbKey: isThumbRow)
-                            .frame(width: keyWidth, height: keyHeight)
-                    }
-                }
-            }
-        }
-        .padding(.top, isThumbRow ? 8 : 0)  // Extra space before thumb row
-    }
-    
-    private func getBindingsForRow(_ row: Int) -> [KeyBinding] {
-        return layer.bindings.filter { $0.row == row }.sorted { $0.column < $1.column }
-    }
-}
 
 // MARK: - Key View with Tooltip
 

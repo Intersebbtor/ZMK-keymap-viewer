@@ -49,9 +49,13 @@ struct HUDView: View {
                 if let layer = keymap.layers[safe: selectedLayerIndex] {
                     GeometryReader { geo in
                         let maxKeysInRow = CGFloat(keymap.layout.keysPerRow.max() ?? 10)
-                        let naturalWidth = (maxKeysInRow * 58) + ((maxKeysInRow - 1) * 12)
+                        let keyWidth: CGFloat = keymap.layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
+                        let keySpacing: CGFloat = 3
+                        let splitGap: CGFloat = 30
+                        
+                        let naturalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap
                         let rowCount = CGFloat(keymap.layout.rowCount)
-                        let naturalHeight = rowCount * 52 + (rowCount - 1) * 12 + (keymap.layout.hasThumbCluster ? 12 : 0)
+                        let naturalHeight = rowCount * 44 + (rowCount - 1) * keySpacing + (keymap.layout.hasThumbCluster ? 8 : 0)
                         
                         let scale = calculateScale(for: keymap.layout, in: geo.size)
                         
@@ -99,10 +103,14 @@ struct HUDView: View {
     
     private func calculateScale(for layout: KeyboardLayout, in size: CGSize) -> CGFloat {
         let maxKeysInRow = CGFloat(layout.keysPerRow.max() ?? 10)
-        let naturalWidth = (maxKeysInRow * 58) + ((maxKeysInRow - 1) * 12)
+        let keyWidth: CGFloat = layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
+        let keySpacing: CGFloat = 3
+        let splitGap: CGFloat = 30
+        
+        let naturalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap
         
         let rowCount = CGFloat(layout.rowCount)
-        let naturalHeight = rowCount * 52 + (rowCount - 1) * 12 + (layout.hasThumbCluster ? 12 : 0)
+        let naturalHeight = rowCount * 44 + (rowCount - 1) * keySpacing + (layout.hasThumbCluster ? 8 : 0)
         
         let widthScale = size.width / naturalWidth
         let heightScale = size.height / naturalHeight
