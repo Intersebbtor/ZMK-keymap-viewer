@@ -120,6 +120,7 @@ Contributions welcome! Some ideas:
 - [ ] Support for Windows and Linux
 - [ ] Support for QMK on top of ZMK
 - [ ] File picker for keymap insertion (could not get this to run, hence the file path solution)
+- [ ] Alias to show what shortcuts acutally do --> e.g. &kp LS(LA(2)) //€
 ---
 
 ## 🙋 Looking for Collaborators!
