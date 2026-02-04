@@ -210,7 +210,7 @@ struct ContentView: View {
     }
     
     private func calculateScale(for layout: KeyboardLayout) -> CGFloat {
-        return 1.0 // On ne scale plus car la fenêtre s'adapte
+        return 1.0 // No more scaling because the window adapts
     }
 
     private func calculateOptimalWidth(for layout: KeyboardLayout) -> CGFloat {
@@ -236,10 +236,10 @@ struct ContentView: View {
     }
     
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 4) { // Réduction du spacing interne
+        VStack(alignment: .leading, spacing: 4) { // Reduce internal spacing
             HStack {
                 Text("Keymap File")
-                    .font(.subheadline.bold()) // Un peu plus petit pour gagner de la place
+                    .font(.subheadline.bold()) // A bit smaller to save space
                 
                 Spacer()
                 // Recent keymaps menu
@@ -512,7 +512,7 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
             
             Button("Disable HUD Mode") {
-                appState.isHUDModeEnabled = false
+                appState.disableHUD()
             }
             .buttonStyle(.bordered)
             .padding(.top, 10)

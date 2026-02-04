@@ -7,14 +7,14 @@ struct HUDView: View {
     
     var body: some View {
         VStack(spacing: 12) {
-            // Barre de drag discrète en haut
+            // Discrete drag bar at the top
             Capsule()
                 .fill(Color.secondary.opacity(0.2))
                 .frame(width: 30, height: 4)
                 .padding(.top, 8)
             
             if let keymap = viewModel.keymap {
-                // Sélecteur de layers minimaliste et "aérien"
+                // Minimalist and "airy" layer selector
                 HStack(spacing: 8) {
                     ForEach(0..<keymap.layers.count, id: \.self) { index in
                         Button(action: { 
@@ -45,7 +45,7 @@ struct HUDView: View {
                 }
                 .padding(.horizontal)
                 
-                // Le clavier qui s'adapte à l'espace restant
+                // The keyboard adapts to the remaining space
                 if let layer = keymap.layers[safe: selectedLayerIndex] {
                     GeometryReader { geo in
                         let maxKeysInRow = CGFloat(keymap.layout.keysPerRow.max() ?? 10)

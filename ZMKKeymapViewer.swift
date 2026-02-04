@@ -12,7 +12,7 @@ struct ZMKKeymapViewerApp: App {
     init() {
         print("[App] ZMKKeymapViewer starting...")
         
-        // Configuration minimale au démarrage
+        // Minimal startup configuration
         NSSetUncaughtExceptionHandler { exception in
             print("[App] CRASH: \(exception)")
         }
@@ -35,7 +35,7 @@ struct ZMKKeymapViewerApp: App {
 }
 
 class AppState: ObservableObject {
-    // On garde une référence statique pour le raccourci global uniquement
+    // Keep a static reference for global shortcut only
     private static var instance: AppState?
     
     @Published var recentKeymaps: [String] = []
@@ -70,8 +70,8 @@ class AppState: ObservableObject {
         setupActivityMonitor()
         setupGlobalShortcut()
         
-        // Initialisation différée du HUD pour ne pas bloquer le lancement
-        // Le keymapViewModel sera assigné depuis ZMKKeymapViewerApp
+        // Deferred initialization of the HUD to avoid blocking startup
+        // The keymapViewModel will be assigned from ZMKKeymapViewerApp
     }
     
     func setupGlobalShortcut() {
@@ -93,12 +93,35 @@ class AppState: ObservableObject {
     }
     
     func setupActivityMonitor() {
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] _ in
-            self?.resetInactivity()
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
+            guard let self = self else { return }
+            
+            if event.type == .mouseMoved {
+                // For mouse movements, we only wake up the HUD if hovering over it
+                if let panel = self.floatingPanel, 
+                   panel.isVisible,
+                   panel.frame.contains(NSEvent.mouseLocation) {
+                    self.resetInactivity()
+                }
+            } else {
+                // For other events (keystrokes), always wake up
+                self.resetInactivity()
+            }
         }
         
         NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
-            self?.resetInactivity()
+            guard let self = self else { return event }
+            
+            if event.type == .mouseMoved {
+                // Same logic for local events
+                if let panel = self.floatingPanel, 
+                   panel.isVisible,
+                   panel.frame.contains(NSEvent.mouseLocation) {
+                    self.resetInactivity()
+                }
+            } else {
+                self.resetInactivity()
+            }
             return event
         }
         
@@ -128,8 +151,7 @@ class AppState: ObservableObject {
     func toggleHUD() {
         if let panel = floatingPanel {
             if panel.isVisible {
-                panel.orderOut(nil)
-                isHUDModeEnabled = false
+                disableHUD()
             } else {
                 resetInactivity()
                 panel.makeKeyAndOrderFront(nil)
@@ -137,7 +159,7 @@ class AppState: ObservableObject {
                 isHUDModeEnabled = true
             }
         } else {
-            // Si le panel n'est pas encore prêt, on le force
+            // If the panel is not ready yet, force it
             if let keymapVM = keymapViewModel {
                 setupHUDPanel(with: keymapVM)
                 if let panel = floatingPanel {
@@ -146,6 +168,13 @@ class AppState: ObservableObject {
                 }
             }
         }
+    }
+    
+    func disableHUD() {
+        if let panel = floatingPanel {
+            panel.orderOut(nil)
+        }
+        isHUDModeEnabled = false
     }
     
     func setupFloatingPanel(with view: AnyView) {
