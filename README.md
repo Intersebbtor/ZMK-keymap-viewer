@@ -22,7 +22,9 @@
 | 🎹 **Menu bar app** | Always one click away - lives in your menu bar |
 | 📂 **Paste any path** | Simply paste the path to your ZMK keymap file |
 | 🔄 **Layer switching** | Instantly switch between all your layers |
-| ⌨️ **Dynamic layouts** | Auto-detects keyboard size (Sweep, Corne, etc.) |
+| ⌨️ **Dynamic layouts** | Auto-detects keyboard size (Sweep, Corne, Sofle, Lily58, etc.) |
+| 👁️ **HUD Mode** | Transparent, floating window overlay for reference while working |
+| ⚡ **Global Shortcut** | Toggle visibility instantly (Default: `Cmd+Shift+K`) |
 | 💬 **Tooltips** | Hover over keys to see raw binding code |
 | 📝 **Open in editor** | Jump straight to editing your keymap |
 | 🕐 **Recent keymaps** | Quick access to previously loaded files |
@@ -71,7 +73,8 @@ cp .build/release/ZMKKeymapViewer "ZMK Keymap Viewer.app/Contents/MacOS/"
    (e.g., `/Users/you/zmk-config/config/cradio.keymap`)
 3. **Click a layer tab** to view that layer's bindings
 4. **Hover over keys** to see the raw ZMK binding code
-5. **Done!** Your keymap is now always one click away
+5. **Press `Cmd+Shift+K`** to toggle the HUD overlay
+6. **Done!** Your keymap is now always one click away
 
 ### Tips
 
@@ -90,6 +93,7 @@ Auto-detects layout based on key count:
 |------|--------|
 | 34 | Sweep, Cradio, Ferris |
 | 42 | Corne, Crkbd |
+| 58 | Sofle, Lily58 Pro |
 | Other | Generic split layout |
 
 > insert your keymap and tell me how it went :)

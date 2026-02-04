@@ -142,7 +142,8 @@ class KeymapViewModelTests: XCTestCase {
         var loadingStates: [Bool] = []
         let cancellable = viewModel.$isLoading.sink { isLoading in
             loadingStates.append(isLoading)
-            if loadingStates.count >= 2 {
+            // Initial is false, then true during load, then false after load
+            if loadingStates.count >= 3 && !isLoading {
                 expectation.fulfill()
             }
         }
