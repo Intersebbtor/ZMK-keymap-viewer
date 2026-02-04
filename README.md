@@ -1,5 +1,7 @@
 # ZMK Keymap Viewer
-## A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
+
+A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
+
 <img width="751" alt="ZMK Keymap Viewer" src="assets/keymap-screenshot.png" />
 
 ## Disclaimer: This app is completely based on AI-output.
