@@ -2,7 +2,7 @@
 
 A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
 
-<img width="751" alt="ZMK Keymap Viewer" src="assets/keymap-screenshot.png" />
+<img width="751" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
 
 ## Disclaimer: This app is completely based on AI-output.
 
@@ -106,11 +106,11 @@ Auto-detects layout based on key count:
 
 The HUD is an always-on-top overlay that floats above your other windows — perfect for quick reference while learning a new layout.
 
-<img width="700" alt="HUD Mode" src="assets/hud-screenshot.png" />
+<img width="700" alt="HUD Mode" src="assets/hud_screenshot.png" />
 
 Customize the HUD's opacity and auto-hide timer in Settings:
 
-<img width="500" alt="Settings" src="assets/settings-screenshot.png" />
+<img width="500" alt="Settings" src="assets/settings_screenshot.png" />
 
 **Features:**
 - **Toggle with `Cmd+Shift+K`** (customizable in settings)
