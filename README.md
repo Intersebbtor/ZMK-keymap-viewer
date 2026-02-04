@@ -98,6 +98,25 @@ Auto-detects layout based on key count:
 
 > insert your keymap and tell me how it went :)
 
+---
+
+## 👁️ HUD Mode
+
+The HUD is an always-on-top overlay that floats above your other windows — perfect for quick reference while learning a new layout.
+
+<img width="700" alt="HUD Mode" src="assets/hud-screenshot.png" />
+
+Customize the HUD's opacity and auto-hide timer in Settings:
+
+<img width="500" alt="Settings" src="assets/settings-screenshot.png" />
+
+**Features:**
+- **Toggle with `Cmd+Shift+K`** (customizable in settings)
+- **Auto-fades** after a few seconds of inactivity
+- **Wakes up** when you hover over it or press any key
+- **Resizable & draggable** — position it anywhere on screen
+- **Remembers position** between launches
+
 > **Want better support for your keyboard?** Open an issue with your layout details!
 
 ---
