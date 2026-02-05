@@ -5,8 +5,14 @@ struct KeyBinding: Identifiable, Equatable {
     let id = UUID()
     let displayText: String   // Human-readable display (e.g., "Q", "CTRL+Q")
     let rawCode: String       // Original keymap code (e.g., "&long_MT RIGHT_CONTROL Q")
+    let alias: String?        // User-defined alias from // =alias comment
     let row: Int
     let column: Int
+    
+    /// Returns alias if present, otherwise displayText
+    var effectiveDisplayText: String {
+        alias ?? displayText
+    }
     
     static func == (lhs: KeyBinding, rhs: KeyBinding) -> Bool {
         return lhs.id == rhs.id
@@ -354,29 +360,59 @@ class KeymapParser {
         return line
     }
     
+    /// Extract alias from a line containing // =alias comment
+    /// Returns nil if no alias comment found
+    private static func extractAlias(from line: String) -> String? {
+        // Look for // = pattern (with optional space after =)
+        guard let commentRange = line.range(of: "//") else { return nil }
+        
+        let commentPart = String(line[commentRange.upperBound...])
+            .trimmingCharacters(in: .whitespaces)
+        
+        // Check if comment starts with = (alias marker)
+        guard commentPart.hasPrefix("=") else { return nil }
+        
+        // Extract alias text after the =
+        let alias = String(commentPart.dropFirst())
+            .trimmingCharacters(in: .whitespaces)
+        
+        return alias.isEmpty ? nil : alias
+    }
+    
     /// Parse the raw bindings content of a layer
     static func parseBindings(from bindingsRaw: String) -> [KeyBinding] {
         var bindings: [KeyBinding] = []
         
         // Split by newlines first to preserve row structure
-        let lines = bindingsRaw.components(separatedBy: "\n")
+        // Keep original lines to extract aliases before stripping comments
+        let originalLines = bindingsRaw.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
-            .map { stripLineComment($0) }  // Strip // comments from each line
-            .filter { !$0.isEmpty }
         
         var currentRow = 0
         
-        for line in lines {
-            let tokens = tokenizeBindings(line)
+        for originalLine in originalLines {
+            // Extract alias before stripping the comment
+            let lineAlias = extractAlias(from: originalLine)
+            
+            // Strip comment and check if line has content
+            let strippedLine = stripLineComment(originalLine)
+            guard !strippedLine.isEmpty else { continue }
+            
+            let tokens = tokenizeBindings(strippedLine)
             
             // If this line has bindings, add them to the current row
             if !tokens.isEmpty {
                 for (colIndex, rawCode) in tokens.enumerated() {
                     let displayText = parseDisplayText(from: rawCode)
                     
+                    // Alias applies to the last binding on the line (most common case)
+                    // or to a single binding on the line
+                    let alias: String? = (colIndex == tokens.count - 1) ? lineAlias : nil
+                    
                     let binding = KeyBinding(
                         displayText: displayText,
                         rawCode: rawCode,
+                        alias: alias,
                         row: currentRow,
                         column: colIndex
                     )

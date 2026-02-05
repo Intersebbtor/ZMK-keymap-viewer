@@ -620,6 +620,16 @@ struct KeyView: View {
     @State private var isHovered = false
     @State private var showTooltip = false
     
+    /// The text to display on the key - alias if present, otherwise parsed display text
+    private var displayLabel: String {
+        binding.effectiveDisplayText
+    }
+    
+    /// Whether this key has a user-defined alias
+    private var hasAlias: Bool {
+        binding.alias != nil
+    }
+    
     var body: some View {
         ZStack {
             // Key background
@@ -627,17 +637,17 @@ struct KeyView: View {
                 .fill(keyBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             
-            // Key border
+            // Key border - highlight aliased keys with a subtle accent
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(isHovered ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isHovered ? 2 : 1)
+                .strokeBorder(borderColor, lineWidth: isHovered ? 2 : 1)
             
             // Key label
-            Text(binding.displayText)
+            Text(displayLabel)
                 .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                 .foregroundColor(textColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .minimumScaleFactor(0.6)
+                .minimumScaleFactor(0.5)
                 .padding(4)
         }
         .onHover { hovering in
@@ -666,11 +676,25 @@ struct KeyView: View {
         .animation(.easeInOut(duration: 0.15), value: showTooltip)
     }
     
+    private var borderColor: Color {
+        if isHovered {
+            return Color.accentColor
+        } else if hasAlias {
+            // Subtle teal border for aliased keys
+            return Color.teal.opacity(0.4)
+        }
+        return Color.primary.opacity(0.1)
+    }
+    
     private var keyBackgroundColor: Color {
+        // Use displayText (not alias) for color logic so colors stay consistent
         if binding.displayText == "▽" {
             return Color.gray.opacity(0.1)
         } else if binding.displayText == "✕" {
             return Color.red.opacity(0.1)
+        } else if hasAlias {
+            // Aliased keys get a subtle teal background
+            return Color.teal.opacity(0.1)
         } else if isThumbKey {
             return Color.blue.opacity(0.15)
         } else if binding.displayText.contains("\n") {
@@ -693,9 +717,12 @@ struct KeyView: View {
     }
     
     private var fontSize: CGFloat {
-        if binding.displayText.count > 4 {
+        let text = displayLabel
+        if text.count > 6 {
+            return 8
+        } else if text.count > 4 {
             return 9
-        } else if binding.displayText.count > 2 {
+        } else if text.count > 2 {
             return 11
         }
         return 12
