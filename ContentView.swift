@@ -622,7 +622,17 @@ struct KeyView: View {
     
     /// The text to display on the key - alias if present, otherwise parsed display text
     private var displayLabel: String {
-        binding.effectiveDisplayText
+        let text = binding.effectiveDisplayText
+        // Wrap long aliases after ~8 chars for better fit
+        if hasAlias && text.count > 8 {
+            // Find a good break point (space, or just split at 8)
+            if let spaceIndex = text.firstIndex(of: " "), text.distance(from: text.startIndex, to: spaceIndex) <= 10 {
+                var result = text
+                result.replaceSubrange(spaceIndex...spaceIndex, with: "\n")
+                return result
+            }
+        }
+        return text
     }
     
     /// Whether this key has a user-defined alias
@@ -679,9 +689,6 @@ struct KeyView: View {
     private var borderColor: Color {
         if isHovered {
             return Color.accentColor
-        } else if hasAlias {
-            // Subtle teal border for aliased keys
-            return Color.teal.opacity(0.4)
         }
         return Color.primary.opacity(0.1)
     }
@@ -692,9 +699,6 @@ struct KeyView: View {
             return Color.gray.opacity(0.1)
         } else if binding.displayText == "✕" {
             return Color.red.opacity(0.1)
-        } else if hasAlias {
-            // Aliased keys get a subtle teal background
-            return Color.teal.opacity(0.1)
         } else if isThumbKey {
             return Color.blue.opacity(0.15)
         } else if binding.displayText.contains("\n") {
