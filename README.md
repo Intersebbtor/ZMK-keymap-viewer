@@ -15,8 +15,8 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 - 🎹 **Menu bar app** — Always one click away
 - 🔄 **Layer switching** — Instantly switch between all your layers
 - ⌨️ **Auto-detect layout** — Sweep, Corne, Sofle, Lily58, and more
-- 👁️ **HUD Mode** — Transparent floating overlay (toggle with `Cmd+Shift+K`)
-- 📝 **Alias support** — Add `/* =€ */` comments to show custom labels
+- 👁️ [**HUD Mode**](#️-hud-mode) — Transparent floating overlay (toggle with `Cmd+Shift+K`)
+- 📝 [**Alias support**](#-alias-comments) — Add `/* =€ */` comments to show custom labels
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
 - 🔄 **Auto-update** — Checks for updates and downloads them in-app
