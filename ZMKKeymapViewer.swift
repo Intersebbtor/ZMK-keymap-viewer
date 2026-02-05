@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-let appVersion = "1.2.0"
+let appVersion = "1.3.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
@@ -73,6 +73,11 @@ class AppState: ObservableObject {
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()
+        
+        // Check for updates silently on launch
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.checkForUpdates()
+        }
         
         // Deferred initialization of the HUD to avoid blocking startup
         // The keymapViewModel will be assigned from ZMKKeymapViewerApp
@@ -288,5 +293,49 @@ class AppState: ObservableObject {
         if let url = URL(string: "https://github.com/\(githubRepo)/releases/latest") {
             NSWorkspace.shared.open(url)
         }
+    }
+    
+    @Published var isDownloadingUpdate = false
+    @Published var downloadProgress: Double = 0
+    
+    func downloadUpdate() {
+        guard let version = updateAvailable else { return }
+        
+        let dmgName = "ZMK-Keymap-Viewer-v\(version).dmg"
+        let downloadURL = URL(string: "https://github.com/\(githubRepo)/releases/download/v\(version)/\(dmgName)")!
+        
+        isDownloadingUpdate = true
+        downloadProgress = 0
+        
+        let task = URLSession.shared.downloadTask(with: downloadURL) { [weak self] tempURL, response, error in
+            DispatchQueue.main.async {
+                self?.isDownloadingUpdate = false
+                
+                guard let tempURL = tempURL, error == nil else {
+                    // Fallback to opening release page if download fails
+                    self?.openReleasePage()
+                    return
+                }
+                
+                // Move to Downloads folder
+                let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+                let destinationURL = downloads.appendingPathComponent(dmgName)
+                
+                try? FileManager.default.removeItem(at: destinationURL) // Remove if exists
+                
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    // Open the DMG and quit the app so it can be replaced
+                    NSWorkspace.shared.open(destinationURL)
+                    // Give a moment for the DMG to mount, then quit
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        NSApplication.shared.terminate(nil)
+                    }
+                } catch {
+                    self?.openReleasePage()
+                }
+            }
+        }
+        task.resume()
     }
 }

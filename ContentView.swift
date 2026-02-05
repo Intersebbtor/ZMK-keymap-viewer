@@ -149,11 +149,19 @@ struct ContentView: View {
             
             // Footer with update, HUD toggle and settings buttons
             HStack(spacing: 12) {
-                if let newVersion = appState.updateAvailable {
+                if appState.isDownloadingUpdate {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                        Text("Downloading...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if let newVersion = appState.updateAvailable {
                     Button {
-                        appState.openReleasePage()
+                        appState.downloadUpdate()
                     } label: {
-                        Label("Update (v\(newVersion))", systemImage: "arrow.down.circle.fill")
+                        Label("Download v\(newVersion)", systemImage: "arrow.down.circle.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
