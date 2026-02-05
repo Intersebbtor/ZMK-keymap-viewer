@@ -192,18 +192,42 @@ class KeymapParser {
             // Check for C style comment (/* */)
             if i < data.index(data.endIndex, offsetBy: -1) && 
                data[i] == "/" && data[nextI] == "*" {
-                // Skip until */
-                i = data.index(after: nextI)
-                while i < data.index(data.endIndex, offsetBy: -1) {
-                    if data[i] == "*" && data[data.index(after: i)] == "/" {
-                        i = data.index(after: data.index(after: i))
+                // Check if this is an alias comment /* =... */ - preserve it!
+                let commentStart = i
+                var commentEnd = data.index(after: nextI)
+                var commentContent = ""
+                
+                // Find the end of the comment and extract content
+                while commentEnd < data.index(data.endIndex, offsetBy: -1) {
+                    if data[commentEnd] == "*" && data[data.index(after: commentEnd)] == "/" {
+                        commentEnd = data.index(after: data.index(after: commentEnd))
                         break
                     }
-                    // Preserve newlines within comments for line tracking
-                    if data[i] == "\n" {
-                        result.append("\n")
+                    commentContent.append(data[commentEnd])
+                    commentEnd = data.index(after: commentEnd)
+                }
+                
+                // Check if it's an alias comment (starts with = after trimming whitespace)
+                let trimmedContent = commentContent.trimmingCharacters(in: .whitespaces)
+                if trimmedContent.hasPrefix("=") {
+                    // Preserve alias comment - append the whole thing
+                    for idx in data.indices[commentStart..<commentEnd] {
+                        result.append(data[idx])
                     }
-                    i = data.index(after: i)
+                    i = commentEnd
+                } else {
+                    // Regular block comment - skip it but preserve newlines
+                    i = data.index(after: nextI)
+                    while i < data.index(data.endIndex, offsetBy: -1) {
+                        if data[i] == "*" && data[data.index(after: i)] == "/" {
+                            i = data.index(after: data.index(after: i))
+                            break
+                        }
+                        if data[i] == "\n" {
+                            result.append("\n")
+                        }
+                        i = data.index(after: i)
+                    }
                 }
                 continue
             }
