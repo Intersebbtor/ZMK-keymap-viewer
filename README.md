@@ -60,7 +60,7 @@ Add custom labels to your bindings using comments:
 
 ```c
 &kp LS(LA(N2)) /* =€ */     // Shows "€" instead of the binding
-&kp LC(C) // =Copy          // Shows "Copy"
+&kp LC(C) /* =Copy */          // Shows "Copy"
 ```
 
 ---
@@ -78,7 +78,6 @@ The app parses your `.keymap` file and extracts:
 
 Ideas and PRs welcome! Some things on the radar:
 
-- [ ] Combos and macros visualization
 - [ ] Windows/Linux support
 - [ ] QMK support
 
@@ -90,4 +89,4 @@ MIT © Intersebbtor
 
 ---
 
-*Built with SwiftUI + AppKit, 100% vibe coded with GitHub Copilot* ✨
+*Built with SwiftUI + AppKit, 100% vibe coded with GitHub Copilot. From the community, for the community.* ✨
