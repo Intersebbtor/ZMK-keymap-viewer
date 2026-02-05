@@ -352,7 +352,7 @@ class KeymapParser {
         return layers
     }
     
-    /// Strip C-style line comments (// ...) from a line
+    /// Strip C-style line comments (// ...) from a line, preserving block comments
     private static func stripLineComment(_ line: String) -> String {
         if let commentRange = line.range(of: "//") {
             return String(line[..<commentRange.lowerBound]).trimmingCharacters(in: .whitespaces)
@@ -360,9 +360,30 @@ class KeymapParser {
         return line
     }
     
-    /// Extract alias from a line containing // =alias comment
+    /// Extract inline alias from block comment: /* =alias */
+    /// Returns the alias text or nil if not found
+    private static func extractInlineAlias(from token: String) -> (binding: String, alias: String?)? {
+        // Look for pattern: &binding /* =alias */
+        let pattern = #"^(.+?)\s*/\*\s*=\s*(.+?)\s*\*/"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return nil
+        }
+        
+        let nsToken = token as NSString
+        guard let match = regex.firstMatch(in: token, options: [], range: NSRange(location: 0, length: nsToken.length)),
+              match.numberOfRanges >= 3 else {
+            return nil
+        }
+        
+        let binding = nsToken.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
+        let alias = nsToken.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
+        
+        return (binding, alias.isEmpty ? nil : alias)
+    }
+    
+    /// Extract alias from end-of-line comment: // =alias
     /// Returns nil if no alias comment found
-    private static func extractAlias(from line: String) -> String? {
+    private static func extractEndOfLineAlias(from line: String) -> String? {
         // Look for // = pattern (with optional space after =)
         guard let commentRange = line.range(of: "//") else { return nil }
         
@@ -391,23 +412,33 @@ class KeymapParser {
         var currentRow = 0
         
         for originalLine in originalLines {
-            // Extract alias before stripping the comment
-            let lineAlias = extractAlias(from: originalLine)
+            // Extract end-of-line alias (// =alias) before stripping
+            let endOfLineAlias = extractEndOfLineAlias(from: originalLine)
             
-            // Strip comment and check if line has content
+            // Strip line comment but keep block comments for inline alias parsing
             let strippedLine = stripLineComment(originalLine)
             guard !strippedLine.isEmpty else { continue }
             
-            let tokens = tokenizeBindings(strippedLine)
+            // Tokenize - this will include any /* =alias */ attached to bindings
+            let tokens = tokenizeBindingsWithAliases(strippedLine)
             
             // If this line has bindings, add them to the current row
             if !tokens.isEmpty {
-                for (colIndex, rawCode) in tokens.enumerated() {
-                    let displayText = parseDisplayText(from: rawCode)
+                for (colIndex, token) in tokens.enumerated() {
+                    var rawCode = token
+                    var alias: String? = nil
                     
-                    // Alias applies to the last binding on the line (most common case)
-                    // or to a single binding on the line
-                    let alias: String? = (colIndex == tokens.count - 1) ? lineAlias : nil
+                    // Check for inline alias: &binding /* =alias */
+                    if let extracted = extractInlineAlias(from: token) {
+                        rawCode = extracted.binding
+                        alias = extracted.alias
+                    }
+                    // End-of-line alias applies to last binding only
+                    else if colIndex == tokens.count - 1 {
+                        alias = endOfLineAlias
+                    }
+                    
+                    let displayText = parseDisplayText(from: rawCode)
                     
                     let binding = KeyBinding(
                         displayText: displayText,
@@ -425,16 +456,39 @@ class KeymapParser {
         return bindings
     }
     
-    private static func tokenizeBindings(_ input: String) -> [String] {
+    /// Tokenize bindings, keeping /* =alias */ attached to their bindings
+    private static func tokenizeBindingsWithAliases(_ input: String) -> [String] {
         var tokens: [String] = []
         var current = ""
         var parenDepth = 0
+        var inBlockComment = false
         
         let chars = Array(input)
         var i = 0
         
         while i < chars.count {
             let char = chars[i]
+            
+            // Track block comments /* ... */
+            if !inBlockComment && i + 1 < chars.count && char == "/" && chars[i + 1] == "*" {
+                inBlockComment = true
+                current.append(char)
+                i += 1
+                continue
+            }
+            if inBlockComment && i + 1 < chars.count && char == "*" && chars[i + 1] == "/" {
+                inBlockComment = false
+                current.append(char)
+                current.append(chars[i + 1])
+                i += 2
+                continue
+            }
+            
+            if inBlockComment {
+                current.append(char)
+                i += 1
+                continue
+            }
             
             if char == "&" {
                 if !current.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -448,17 +502,24 @@ class KeymapParser {
                 parenDepth -= 1
                 current.append(char)
             } else if char == " " && parenDepth == 0 && !current.isEmpty {
-                // Space outside parentheses - check if next non-space is &
+                // Space outside parentheses - check if next non-space is & or /*
                 var nextNonSpace = i + 1
                 while nextNonSpace < chars.count && chars[nextNonSpace] == " " {
                     nextNonSpace += 1
                 }
+                // Check for /* (block comment that might be an alias)
+                let nextIsBlockComment = nextNonSpace + 1 < chars.count && 
+                    chars[nextNonSpace] == "/" && chars[nextNonSpace + 1] == "*"
+                
                 if nextNonSpace < chars.count && chars[nextNonSpace] == "&" {
-                    // End of current token
+                    // End of current token, next is a new binding
                     if !current.trimmingCharacters(in: .whitespaces).isEmpty {
                         tokens.append(current.trimmingCharacters(in: .whitespaces))
                     }
                     current = ""
+                } else if nextIsBlockComment {
+                    // Keep block comment attached to current token
+                    current.append(char)
                 } else {
                     current.append(char)
                 }

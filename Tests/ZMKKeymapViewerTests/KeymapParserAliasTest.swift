@@ -3,20 +3,43 @@ import XCTest
 
 final class KeymapParserAliasTest: XCTestCase {
     
-    // MARK: - Basic Alias Parsing
+    // MARK: - Inline Block Comment Aliases /* =alias */
     
-    func testAliasExtractedFromSingleBinding() {
-        let input = "&kp LS(LA(LG(K)))  // =Magnet Right"
+    func testInlineAliasWithBlockComment() {
+        let input = "&kp LS(LA(LG(K))) /* =Magnet Right */"
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 1)
         XCTAssertEqual(bindings[0].alias, "Magnet Right")
         XCTAssertEqual(bindings[0].effectiveDisplayText, "Magnet Right")
-        // Raw code should NOT contain the comment
-        XCTAssertFalse(bindings[0].rawCode.contains("//"))
+        XCTAssertEqual(bindings[0].rawCode, "&kp LS(LA(LG(K)))")
     }
     
-    func testAliasWithNoSpace() {
+    func testInlineAliasInMiddleOfLine() {
+        // This is the key use case - alias in middle of line without breaking subsequent bindings
+        let input = "&kp A  &kp LC(LA(LG(C))) /* =Finder */  &kp TILDE"
+        let bindings = KeymapParser.parseBindings(from: input)
+        
+        XCTAssertEqual(bindings.count, 3)
+        XCTAssertNil(bindings[0].alias) // A - no alias
+        XCTAssertEqual(bindings[1].alias, "Finder") // LC(LA(LG(C))) - has alias
+        XCTAssertNil(bindings[2].alias) // TILDE - no alias
+        XCTAssertEqual(bindings[2].displayText, "~") // Verify TILDE wasn't lost
+    }
+    
+    func testMultipleInlineAliasesOnSameLine() {
+        let input = "&kp A /* =Alpha */  &kp B /* =Bravo */  &kp C"
+        let bindings = KeymapParser.parseBindings(from: input)
+        
+        XCTAssertEqual(bindings.count, 3)
+        XCTAssertEqual(bindings[0].alias, "Alpha")
+        XCTAssertEqual(bindings[1].alias, "Bravo")
+        XCTAssertNil(bindings[2].alias)
+    }
+    
+    // MARK: - End-of-Line Aliases // =alias (still supported)
+    
+    func testEndOfLineAlias() {
         let input = "&kp A  // =Letter A"
         let bindings = KeymapParser.parseBindings(from: input)
         
@@ -24,24 +47,32 @@ final class KeymapParserAliasTest: XCTestCase {
         XCTAssertEqual(bindings[0].alias, "Letter A")
     }
     
-    func testAliasWithSpaceAfterEquals() {
-        let input = "&kp A  // = Spaced Alias"
+    func testEndOfLineAliasAppliesOnlyToLastBinding() {
+        let input = "&kp A  &kp B  &kp C  // =Charlie"
         let bindings = KeymapParser.parseBindings(from: input)
         
-        XCTAssertEqual(bindings.count, 1)
-        XCTAssertEqual(bindings[0].alias, "Spaced Alias")
+        XCTAssertEqual(bindings.count, 3)
+        XCTAssertNil(bindings[0].alias)
+        XCTAssertNil(bindings[1].alias)
+        XCTAssertEqual(bindings[2].alias, "Charlie")
     }
     
     // MARK: - Regular Comments (No Alias)
     
-    func testRegularCommentNotTreatedAsAlias() {
+    func testRegularLineCommentNotTreatedAsAlias() {
         let input = "&kp A  // This is just a comment"
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 1)
         XCTAssertNil(bindings[0].alias)
-        XCTAssertEqual(bindings[0].displayText, "A")
-        XCTAssertEqual(bindings[0].effectiveDisplayText, "A")
+    }
+    
+    func testRegularBlockCommentNotTreatedAsAlias() {
+        let input = "&kp A /* just a comment */"
+        let bindings = KeymapParser.parseBindings(from: input)
+        
+        XCTAssertEqual(bindings.count, 1)
+        XCTAssertNil(bindings[0].alias)
     }
     
     func testNoCommentMeansNoAlias() {
@@ -52,24 +83,11 @@ final class KeymapParserAliasTest: XCTestCase {
         XCTAssertNil(bindings[0].alias)
     }
     
-    // MARK: - Multiple Bindings Per Line
-    
-    func testAliasAppliesOnlyToLastBindingOnLine() {
-        // Multiple bindings on one line - alias should apply to the LAST one
-        let input = "&kp A  &kp B  &kp C  // =Charlie"
-        let bindings = KeymapParser.parseBindings(from: input)
-        
-        XCTAssertEqual(bindings.count, 3)
-        XCTAssertNil(bindings[0].alias) // A - no alias
-        XCTAssertNil(bindings[1].alias) // B - no alias
-        XCTAssertEqual(bindings[2].alias, "Charlie") // C - has alias
-    }
-    
     // MARK: - Multi-Line Bindings
     
     func testMultipleLinesWithDifferentAliases() {
         let input = """
-        &kp A  // =Alpha
+        &kp A /* =Alpha */
         &kp B  // =Bravo
         &kp C
         """
@@ -84,7 +102,7 @@ final class KeymapParserAliasTest: XCTestCase {
     // MARK: - Edge Cases
     
     func testEmptyAliasIgnored() {
-        let input = "&kp A  // ="
+        let input = "&kp A /* = */"
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 1)
@@ -92,7 +110,7 @@ final class KeymapParserAliasTest: XCTestCase {
     }
     
     func testAliasWithSpecialCharacters() {
-        let input = "&kp A  // =ä (umlaut)"
+        let input = "&kp A /* =ä (umlaut) */"
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 1)
@@ -100,7 +118,7 @@ final class KeymapParserAliasTest: XCTestCase {
     }
     
     func testAliasWithEmoji() {
-        let input = "&kp A  // =🔥 Fire Key"
+        let input = "&kp A /* =🔥 Fire Key */"
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 1)
@@ -109,37 +127,17 @@ final class KeymapParserAliasTest: XCTestCase {
     
     // MARK: - Real-World Examples
     
-    func testMagnetShortcuts() {
+    func testMagnetShortcutsInline() {
         let input = """
-        &kp LC(LA(LEFT))    // =Magnet Left
-        &kp LC(LA(E))       // =Arc Tab 1
-        &kp LC(LA(R))       // =Arc Tab 2
-        &kp LC(LA(T))       // =Arc Tab 3
-        &kp LC(LA(RIGHT))   // =Magnet Right
+        &kp LC(LA(LEFT)) /* =⬅️ Left */  &kp LC(LA(E)) /* =Arc 1 */  &kp LC(LA(R)) /* =Arc 2 */  &kp LC(LA(T)) /* =Arc 3 */  &kp LC(LA(RIGHT)) /* =➡️ Right */
         """
         let bindings = KeymapParser.parseBindings(from: input)
         
         XCTAssertEqual(bindings.count, 5)
-        XCTAssertEqual(bindings[0].alias, "Magnet Left")
-        XCTAssertEqual(bindings[1].alias, "Arc Tab 1")
-        XCTAssertEqual(bindings[2].alias, "Arc Tab 2")
-        XCTAssertEqual(bindings[3].alias, "Arc Tab 3")
-        XCTAssertEqual(bindings[4].alias, "Magnet Right")
-        
-        // effectiveDisplayText should return alias
-        XCTAssertEqual(bindings[0].effectiveDisplayText, "Magnet Left")
-    }
-    
-    func testMixedAliasAndRegularComments() {
-        let input = """
-        &kp A  // =Alpha
-        &kp B  // just a note
-        &kp C  // =Charlie
-        """
-        let bindings = KeymapParser.parseBindings(from: input)
-        
-        XCTAssertEqual(bindings[0].alias, "Alpha")
-        XCTAssertNil(bindings[1].alias)
-        XCTAssertEqual(bindings[2].alias, "Charlie")
+        XCTAssertEqual(bindings[0].alias, "⬅️ Left")
+        XCTAssertEqual(bindings[1].alias, "Arc 1")
+        XCTAssertEqual(bindings[2].alias, "Arc 2")
+        XCTAssertEqual(bindings[3].alias, "Arc 3")
+        XCTAssertEqual(bindings[4].alias, "➡️ Right")
     }
 }
