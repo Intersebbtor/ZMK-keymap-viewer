@@ -405,40 +405,17 @@ class KeymapParser {
         return (binding, alias.isEmpty ? nil : alias)
     }
     
-    /// Extract alias from end-of-line comment: // =alias
-    /// Returns nil if no alias comment found
-    private static func extractEndOfLineAlias(from line: String) -> String? {
-        // Look for // = pattern (with optional space after =)
-        guard let commentRange = line.range(of: "//") else { return nil }
-        
-        let commentPart = String(line[commentRange.upperBound...])
-            .trimmingCharacters(in: .whitespaces)
-        
-        // Check if comment starts with = (alias marker)
-        guard commentPart.hasPrefix("=") else { return nil }
-        
-        // Extract alias text after the =
-        let alias = String(commentPart.dropFirst())
-            .trimmingCharacters(in: .whitespaces)
-        
-        return alias.isEmpty ? nil : alias
-    }
-    
     /// Parse the raw bindings content of a layer
     static func parseBindings(from bindingsRaw: String) -> [KeyBinding] {
         var bindings: [KeyBinding] = []
         
         // Split by newlines first to preserve row structure
-        // Keep original lines to extract aliases before stripping comments
         let originalLines = bindingsRaw.components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
         
         var currentRow = 0
         
         for originalLine in originalLines {
-            // Extract end-of-line alias (// =alias) before stripping
-            let endOfLineAlias = extractEndOfLineAlias(from: originalLine)
-            
             // Strip line comment but keep block comments for inline alias parsing
             let strippedLine = stripLineComment(originalLine)
             guard !strippedLine.isEmpty else { continue }
@@ -448,7 +425,7 @@ class KeymapParser {
             
             // If this line has bindings, add them to the current row
             if !tokens.isEmpty {
-                for (colIndex, token) in tokens.enumerated() {
+                for (_, token) in tokens.enumerated() {
                     var rawCode = token
                     var alias: String? = nil
                     
@@ -456,10 +433,6 @@ class KeymapParser {
                     if let extracted = extractInlineAlias(from: token) {
                         rawCode = extracted.binding
                         alias = extracted.alias
-                    }
-                    // End-of-line alias applies to last binding only
-                    else if colIndex == tokens.count - 1 {
-                        alias = endOfLineAlias
                     }
                     
                     let displayText = parseDisplayText(from: rawCode)
@@ -469,7 +442,7 @@ class KeymapParser {
                         rawCode: rawCode,
                         alias: alias,
                         row: currentRow,
-                        column: colIndex
+                        column: bindings.filter { $0.row == currentRow }.count
                     )
                     bindings.append(binding)
                 }
