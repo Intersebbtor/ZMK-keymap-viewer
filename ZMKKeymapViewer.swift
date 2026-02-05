@@ -93,31 +93,33 @@ class AppState: ObservableObject {
     }
     
     func setupActivityMonitor() {
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
+        // Global monitor: Only wake HUD when mouse hovers over the panel
+        // Keystrokes in other apps should NOT wake the HUD
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .leftMouseDragged]) { [weak self] event in
             guard let self = self else { return }
             
-            if event.type == .mouseMoved {
-                // For mouse movements, we only wake up the HUD if hovering over it
-                if let panel = self.floatingPanel, 
-                   panel.isVisible,
-                   panel.frame.contains(NSEvent.mouseLocation) {
-                    self.resetInactivity()
-                }
+            // Check if mouse is over the HUD panel
+            if let panel = self.floatingPanel, 
+               panel.isVisible,
+               panel.frame.contains(NSEvent.mouseLocation) {
+                // Pause timer while hovering/dragging over panel
+                self.pauseInactivityTimer()
             } else {
-                // For other events (keystrokes), always wake up
-                self.resetInactivity()
+                // Resume timer when mouse leaves panel
+                self.resumeInactivityTimer()
             }
         }
         
-        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown]) { [weak self] event in
+        // Local monitor: Wake on any interaction within the app itself
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .mouseMoved, .leftMouseDown, .leftMouseDragged]) { [weak self] event in
             guard let self = self else { return event }
             
-            if event.type == .mouseMoved {
-                // Same logic for local events
+            if event.type == .mouseMoved || event.type == .leftMouseDragged {
+                // Keep timer paused while interacting with the panel
                 if let panel = self.floatingPanel, 
                    panel.isVisible,
                    panel.frame.contains(NSEvent.mouseLocation) {
-                    self.resetInactivity()
+                    self.pauseInactivityTimer()
                 }
             } else {
                 self.resetInactivity()
@@ -133,8 +135,28 @@ class AppState: ObservableObject {
         print("[App] Accessibility status: \(accessEnabled)")
     }
     
-    func resetInactivity() {
+    private var isTimerPaused = false
+    
+    func pauseInactivityTimer() {
         DispatchQueue.main.async {
+            self.isHUDInactive = false
+            self.activityTimer?.invalidate()
+            self.isTimerPaused = true
+        }
+    }
+    
+    func resumeInactivityTimer() {
+        DispatchQueue.main.async {
+            guard self.isTimerPaused else { return }
+            self.isTimerPaused = false
+            self.resetInactivity()
+        }
+    }
+    
+    func resetInactivity(caller: String = #function) {
+        DispatchQueue.main.async {
+            guard !self.isTimerPaused else { return }
+            
             self.isHUDInactive = false
             self.activityTimer?.invalidate()
             
