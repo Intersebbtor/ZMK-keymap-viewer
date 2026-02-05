@@ -150,17 +150,24 @@ struct ContentView: View {
             // Footer with update, HUD toggle and settings buttons
             HStack(spacing: 12) {
                 if let newVersion = appState.updateAvailable {
-                    Button("Update (v\(newVersion))") {
+                    Button {
                         appState.openReleasePage()
+                    } label: {
+                        Label("Update (v\(newVersion))", systemImage: "arrow.down.circle.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
+                } else if appState.isUpToDate {
+                    Label("Up to date", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
                 } else {
                     Button(action: { appState.checkForUpdates() }) {
-                        Text("Check for updates")
-                            .font(.caption)
+                        Label("Check for updates", systemImage: "arrow.clockwise")
+                            .foregroundColor(.primary)
                     }
                     .buttonStyle(.borderless)
+                    .font(.caption)
                     .disabled(appState.isCheckingUpdate)
                 }
                 
@@ -178,15 +185,25 @@ struct ContentView: View {
                 .font(.caption)
                 .help("Toggle HUD Mode (\(shortcutString))")
                 
+                Divider()
+                    .frame(height: 16)
+                
                 Button(action: { appState.isSettingsVisible.toggle() }) {
-                    Image(systemName: "gearshape.fill")
+                    Label("Settings", systemImage: "gearshape.fill")
                         .foregroundColor(appState.isSettingsVisible ? .accentColor : .primary)
                 }
                 .buttonStyle(.borderless)
+                .font(.caption)
                 .help("Settings")
+                
+                Divider()
+                    .frame(height: 16)
 
-                Button("Quit") {
+                Button {
                     NSApplication.shared.terminate(nil)
+                } label: {
+                    Label("Quit", systemImage: "xmark.circle")
+                        .foregroundColor(.primary)
                 }
                 .buttonStyle(.borderless)
                 .font(.caption)
@@ -262,8 +279,10 @@ struct ContentView: View {
                         
                         Divider()
                         
-                        Button("Clear History", role: .destructive) {
+                        Button(role: .destructive) {
                             appState.clearRecentKeymaps()
+                        } label: {
+                            Label("Clear History", systemImage: "trash")
                         }
                     } label: {
                         HStack(spacing: 4) {
@@ -289,8 +308,10 @@ struct ContentView: View {
                         loadFromPathText()
                     }
                 
-                Button("Load") {
+                Button {
                     loadFromPathText()
+                } label: {
+                    Label("Load", systemImage: "folder")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -300,8 +321,10 @@ struct ContentView: View {
             // Status row
             HStack(spacing: 8) {
                 if let filePath = viewModel.currentFilePath {
-                    Button("Open in Editor") {
+                    Button {
                         NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
+                    } label: {
+                        Label("Open in Editor", systemImage: "pencil.and.outline")
                     }
                     .buttonStyle(.borderless)
                     .font(.caption)
@@ -324,27 +347,31 @@ struct ContentView: View {
     }
     
     private var layerTabsView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if let keymap = viewModel.keymap {
-                    ForEach(Array(keymap.layers.enumerated()), id: \.1.id) { index, layer in
-                        Button(action: { selectedLayerIndex = index }) {
-                            Text(layer.name)
-                                .font(.system(size: 12, weight: selectedLayerIndex == index ? .semibold : .regular))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
-                                )
-                                .foregroundColor(selectedLayerIndex == index ? .white : .primary)
+        HStack {
+            Spacer()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if let keymap = viewModel.keymap {
+                        ForEach(Array(keymap.layers.enumerated()), id: \.1.id) { index, layer in
+                            Button(action: { selectedLayerIndex = index }) {
+                                Text(layer.name)
+                                    .font(.system(size: 12, weight: selectedLayerIndex == index ? .semibold : .regular))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
+                                    )
+                                    .foregroundColor(selectedLayerIndex == index ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .fixedSize(horizontal: true, vertical: false)
+            Spacer()
         }
         .background(Color(NSColor.controlBackgroundColor))
     }
@@ -492,6 +519,45 @@ struct ContentView: View {
                     Toggle("Use Background Blur (Material)", isOn: $appState.hudUseMaterial)
                         .font(.caption2)
                 }
+                
+                Divider()
+                
+                // PDF Export Section
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("PDF Export", systemImage: "doc.fill")
+                        .font(.caption.bold())
+                    
+                    HStack {
+                        Text("Save to:")
+                            .font(.caption2)
+                        
+                        Picker("", selection: $appState.exportDirectory) {
+                            Text("Desktop").tag("Desktop")
+                            Text("Documents").tag("Documents")
+                            Text("Downloads").tag("Downloads")
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 120)
+                        
+                        Spacer()
+                        
+                        if let keymap = viewModel.keymap {
+                            Button {
+                                PDFExporter.export(keymap: keymap, to: appState.exportDirectory, showRawBindings: true)
+                            } label: {
+                                Label("Export PDF", systemImage: "arrow.down.doc")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        }
+                    }
+                    
+                    if viewModel.keymap == nil {
+                        Text("Load a keymap first to export")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             Spacer()
         }
@@ -511,8 +577,10 @@ struct ContentView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            Button("Disable HUD Mode") {
+            Button {
                 appState.disableHUD()
+            } label: {
+                Label("Disable HUD Mode", systemImage: "eye.slash")
             }
             .buttonStyle(.bordered)
             .padding(.top, 10)

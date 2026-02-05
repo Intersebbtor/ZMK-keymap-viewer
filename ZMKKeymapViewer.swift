@@ -41,12 +41,16 @@ class AppState: ObservableObject {
     @Published var recentKeymaps: [String] = []
     @Published var updateAvailable: String? = nil
     @Published var isCheckingUpdate = false
+    @Published var isUpToDate = false
     
     // HUD Settings
     @AppStorage("isHUDModeEnabled") var isHUDModeEnabled = false
     @AppStorage("hudOpacity") var hudOpacity: Double = 0.9
     @AppStorage("hudUseMaterial") var hudUseMaterial = true
     @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
+    
+    // Export Settings
+    @AppStorage("exportDirectory") var exportDirectory: String = "Desktop"
     
     // Global Shortcut Settings
     @AppStorage("shortcutKeyCode") var shortcutKeyCode: Int = 40 // 'K'
@@ -250,6 +254,7 @@ class AppState: ObservableObject {
     func checkForUpdates() {
         isCheckingUpdate = true
         updateAvailable = nil
+        isUpToDate = false
         
         let url = URL(string: "https://api.github.com/repos/\(githubRepo)/releases/latest")!
         var request = URLRequest(url: url)
@@ -268,6 +273,12 @@ class AppState: ObservableObject {
                 let latestVersion = tagName.replacingOccurrences(of: "v", with: "")
                 if latestVersion.compare(appVersion, options: .numeric) == .orderedDescending {
                     self?.updateAvailable = latestVersion
+                } else {
+                    self?.isUpToDate = true
+                    // Auto-hide "Up to date" after 3 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        self?.isUpToDate = false
+                    }
                 }
             }
         }.resume()

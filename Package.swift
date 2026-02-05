@@ -23,7 +23,8 @@ let package = Package(
                 "FileMonitor.swift",
                 "FloatingPanel.swift",
                 "HUDView.swift",
-                "GlobalShortcutManager.swift"
+                "GlobalShortcutManager.swift",
+                "PDFExporter.swift"
             ]
         ),
         .testTarget(
