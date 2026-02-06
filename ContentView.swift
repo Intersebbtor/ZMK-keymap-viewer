@@ -374,37 +374,40 @@ struct ContentView: View {
     }
     
     private var layerTabsView: some View {
-        VStack(spacing: 4) {
-            if let keymap = viewModel.keymap {
-                let layers = Array(keymap.layers.enumerated())
-                // Split into rows of max 6 layers each
-                let maxPerRow = 6
-                let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
-                    Array(layers[start..<min(start + maxPerRow, layers.count)])
-                }
-                ForEach(0..<rows.count, id: \.self) { rowIdx in
-                    HStack(spacing: 8) {
-                        ForEach(rows[rowIdx], id: \.1.id) { index, layer in
-                            Button(action: { selectedLayerIndex = index }) {
-                                Text(layer.name)
-                                    .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
-                                    .lineLimit(1)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
-                                    )
-                                    .foregroundColor(selectedLayerIndex == index ? .white : .primary)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 4) {
+                if let keymap = viewModel.keymap {
+                    let layers = Array(keymap.layers.enumerated())
+                    // Split into rows of max 6 layers each
+                    let maxPerRow = 6
+                    let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
+                        Array(layers[start..<min(start + maxPerRow, layers.count)])
+                    }
+                    ForEach(0..<rows.count, id: \.self) { rowIdx in
+                        HStack(spacing: 8) {
+                            ForEach(rows[rowIdx], id: \.1.id) { index, layer in
+                                Button(action: { selectedLayerIndex = index }) {
+                                    Text(layer.name)
+                                        .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
+                                        )
+                                        .foregroundColor(selectedLayerIndex == index ? .white : .primary)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
+            .padding(.vertical, 8)
         }
+        .frame(maxHeight: 120) // Limit height, scroll if more layers
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
     }
     
