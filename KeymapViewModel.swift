@@ -40,7 +40,7 @@ class KeymapViewModel: ObservableObject {
             do {
                 let data = try String(contentsOfFile: filePath, encoding: .utf8)
                 
-                if let parsed = KeymapParser.parse(from: data) {
+                if let parsed = KeymapParser.parse(from: data, filePath: filePath) {
                     DispatchQueue.main.async {
                         self.keymap = parsed
                         self.currentFilePath = filePath

@@ -35,67 +35,94 @@ struct KeyboardLayout: Equatable {
     let rowCount: Int
     let hasThumbCluster: Bool
     let thumbKeysCount: Int
-    let name: String          // e.g., "Sweep", "Corne", "Unknown"
+    let name: String          // e.g., "Sweep", "Corne", "Go60", "Custom (60 keys)"
+    let isSplit: Bool         // Whether the keyboard has a split layout (gap in the middle)
     
-    static let sweep = KeyboardLayout(
-        totalKeys: 34,
-        keysPerRow: [10, 10, 10, 4],
-        rowCount: 4,
-        hasThumbCluster: true,
-        thumbKeysCount: 4,
-        name: "Sweep/Cradio"
-    )
-    
-    static let corne = KeyboardLayout(
-        totalKeys: 42,
-        keysPerRow: [12, 12, 12, 6],
-        rowCount: 4,
-        hasThumbCluster: true,
-        thumbKeysCount: 6,
-        name: "Corne"
-    )
-    
-    static let sofle = KeyboardLayout(
-        totalKeys: 48,
-        keysPerRow: [12, 12, 12, 12],
-        rowCount: 4,
-        hasThumbCluster: true,
-        thumbKeysCount: 12,
-        name: "Sofle"
-    )
-    
-    static let lily58Pro = KeyboardLayout(
-        totalKeys: 60,
-        keysPerRow: [12, 12, 12, 14, 10],
-        rowCount: 5,
-        hasThumbCluster: true,
-        thumbKeysCount: 10,
-        name: "Lily58 Pro"
-    )
-    
-    static func detect(fromKeyCount count: Int, keysPerRow: [Int]) -> KeyboardLayout {
-        // Try to match known layouts
-        if count == 34 {
-            return .sweep
-        } else if count == 42 {
-            return .corne
-        } else if count == 48 {
-            return .sofle
-        } else if count == 60 {
-            return .lily58Pro
-        }
-        
-        // Create a custom layout based on detected keys
+    /// Create a layout directly from parsed data - the generalized approach
+    static func create(
+        keyCount: Int,
+        keysPerRow: [Int],
+        detectedName: String?,
+        isSplit: Bool = true   // Default to split since most ZMK boards are split
+    ) -> KeyboardLayout {
         let rowCount = keysPerRow.count
         let thumbKeys = keysPerRow.last ?? 0
+        let firstRowKeys = keysPerRow.first ?? 0
+        
+        // Thumb cluster detection: last row has fewer keys than first row
+        let hasThumbCluster = thumbKeys < firstRowKeys
+        
+        // Use detected name or generate a descriptive one
+        let name = detectedName ?? "Custom (\(keyCount) keys)"
+        
         return KeyboardLayout(
-            totalKeys: count,
+            totalKeys: keyCount,
             keysPerRow: keysPerRow,
             rowCount: rowCount,
-            hasThumbCluster: thumbKeys < (keysPerRow.first ?? 0),
-            thumbKeysCount: thumbKeys,
-            name: "Custom (\(count) keys)"
+            hasThumbCluster: hasThumbCluster,
+            thumbKeysCount: hasThumbCluster ? thumbKeys : 0,
+            name: name,
+            isSplit: isSplit
         )
+    }
+    
+    /// Known keyboard configurations: name -> isSplit
+    private static let knownKeyboards: [String: (name: String, isSplit: Bool)] = [
+        // Split keyboards
+        "sweep": ("Sweep/Cradio", true),
+        "cradio": ("Sweep/Cradio", true),
+        "corne": ("Corne", true),
+        "crkbd": ("Corne", true),
+        "sofle": ("Sofle", true),
+        "lily58": ("Lily58", true),
+        "kyria": ("Kyria", true),
+        "ferris": ("Ferris", true),
+        "ergodox": ("Ergodox", true),
+        "dactyl": ("Dactyl", true),
+        "totem": ("Totem", true),
+        "go60": ("Go60", true),
+        "glove80": ("Glove80", true),
+        // Non-split keyboards
+        "planck": ("Planck", false),
+        "preonic": ("Preonic", false),
+        "reviung": ("Reviung", false),
+        "reviung41": ("Reviung41", false),
+        "bdn9": ("BDN9", false),
+        "nibble": ("Nibble", false),
+    ]
+    
+    /// Detect keyboard info from file content (comments, defines, filename, etc.)
+    /// Returns (name, isSplit) or nil if not detected
+    static func detectKeyboardInfo(from content: String, filePath: String? = nil) -> (name: String, isSplit: Bool)? {
+        // Check for Go60/Glove80 Layout Editor signature first
+        if content.contains("GO60 LAYOUT EDITOR") || content.contains("KB_TYPE_GO_60") {
+            return ("Go60", true)
+        }
+        if content.contains("GLOVE80 LAYOUT EDITOR") || content.contains("KB_TYPE_GLOVE_80") {
+            return ("Glove80", true)
+        }
+        
+        let lowercased = content.lowercased()
+        let filePathLower = filePath?.lowercased() ?? ""
+        
+        for (keyword, info) in knownKeyboards {
+            // Check in filename first (most reliable)
+            if filePathLower.contains(keyword) {
+                return info
+            }
+            
+            // Check in content - look for the keyword anywhere
+            if lowercased.contains(keyword) {
+                return info
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Detect keyboard name from file content (legacy method for compatibility)
+    static func detectName(from content: String) -> String? {
+        return detectKeyboardInfo(from: content)?.name
     }
 }
 
@@ -106,9 +133,20 @@ struct Keymap {
     var behaviors: [String: String]  // behavior name -> description
     var macros: [String: String]     // macro name -> description
     
-    init(layers: [KeymapLayer] = [], layout: KeyboardLayout = .sweep, behaviors: [String: String] = [:], macros: [String: String] = [:]) {
+    /// Default layout for empty/uninitialized state
+    private static let defaultLayout = KeyboardLayout(
+        totalKeys: 0,
+        keysPerRow: [],
+        rowCount: 0,
+        hasThumbCluster: false,
+        thumbKeysCount: 0,
+        name: "Unknown",
+        isSplit: true
+    )
+    
+    init(layers: [KeymapLayer] = [], layout: KeyboardLayout? = nil, behaviors: [String: String] = [:], macros: [String: String] = [:]) {
         self.layers = layers
-        self.layout = layout
+        self.layout = layout ?? Keymap.defaultLayout
         self.behaviors = behaviors
         self.macros = macros
     }
@@ -117,7 +155,11 @@ struct Keymap {
 class KeymapParser {
     
     /// Parse a ZMK keymap file and return a complete Keymap structure
-    static func parse(from data: String) -> Keymap? {
+    static func parse(from data: String, filePath: String? = nil) -> Keymap? {
+        // Detect keyboard info from raw content BEFORE removing comments
+        let keyboardInfo = KeyboardLayout.detectKeyboardInfo(from: data, filePath: filePath)
+        let detectedName = keyboardInfo?.name
+        
         // Remove comments before processing
         let cleanedData = removeComments(from: data)
         
@@ -157,11 +199,26 @@ class KeymapParser {
             return nil
         }
         
-        // Detect layout from first layer
+        // Detect if keyboard is split:
+        // 1. Use known keyboard info if available (most reliable)
+        // 2. Fall back to spacing pattern analysis
+        let isSplit: Bool
+        if let knownSplit = keyboardInfo?.isSplit {
+            isSplit = knownSplit
+        } else {
+            isSplit = detectSplitLayout(from: keymapContent)
+        }
+        
+        // Create layout from actual parsed structure (generalized approach)
         let firstLayer = layers[0]
         let keysPerRow = calculateKeysPerRow(bindings: firstLayer.bindings)
-        let layout = KeyboardLayout.detect(fromKeyCount: firstLayer.bindings.count, keysPerRow: keysPerRow)
-        print("[KeymapParser] Detected: \(layout.name) with \(layers.count) layers, \(firstLayer.bindings.count) keys")
+        let layout = KeyboardLayout.create(
+            keyCount: firstLayer.bindings.count,
+            keysPerRow: keysPerRow,
+            detectedName: detectedName,
+            isSplit: isSplit
+        )
+        print("[KeymapParser] Detected: \(layout.name) with \(layers.count) layers, \(firstLayer.bindings.count) keys, rows: \(keysPerRow), split: \(isSplit)")
         
         return Keymap(layers: layers, layout: layout, behaviors: behaviors, macros: macros)
     }
@@ -583,6 +640,101 @@ class KeymapParser {
             result.append(rowCounts[row] ?? 0)
         }
         return result
+    }
+    
+    /// Detect if the keyboard is a split layout by analyzing spacing patterns
+    /// Split keyboards have a large gap at the MIDDLE of each row (symmetric split)
+    /// Non-split keyboards have gaps distributed throughout for alignment, not concentrated in the middle
+    private static func detectSplitLayout(from keymapContent: String) -> Bool {
+        // Find bindings content
+        let bindingsPattern = "bindings\\s*=\\s*<(.*?)>"
+        guard let regex = try? NSRegularExpression(pattern: bindingsPattern, options: [.dotMatchesLineSeparators]),
+              let match = regex.firstMatch(in: keymapContent, options: [], range: NSRange(location: 0, length: (keymapContent as NSString).length)),
+              match.numberOfRanges >= 2 else {
+            return true // Default to split for most ZMK keyboards
+        }
+        
+        let bindingsRaw = (keymapContent as NSString).substring(with: match.range(at: 1))
+        
+        // Analyze each line for spacing patterns
+        let lines = bindingsRaw.components(separatedBy: "\n")
+            .filter { line in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                return !trimmed.isEmpty && trimmed.contains("&")
+            }
+        
+        guard !lines.isEmpty else { return true }
+        
+        var linesWithMiddleGap = 0
+        var totalBindingLines = 0
+        
+        for line in lines {
+            // Count bindings in this line by counting &
+            let bindingCount = line.components(separatedBy: "&").count - 1
+            if bindingCount < 6 { continue } // Skip short lines - need enough keys to detect pattern
+            
+            totalBindingLines += 1
+            
+            // Find positions of all bindings (where & appears)
+            var bindingPositions: [Int] = []
+            for (index, char) in line.enumerated() {
+                if char == "&" {
+                    bindingPositions.append(index)
+                }
+            }
+            
+            guard bindingPositions.count >= 6 else { continue }
+            
+            // The middle gap should be between binding (count/2 - 1) and (count/2)
+            // For 12 keys: gap between key 5 and 6 (indices 5 and 6 in bindingPositions)
+            let middleIndex = bindingPositions.count / 2
+            guard middleIndex > 0 && middleIndex < bindingPositions.count else { continue }
+            
+            // Calculate gap at the middle
+            let leftMiddlePos = bindingPositions[middleIndex - 1]
+            let rightMiddlePos = bindingPositions[middleIndex]
+            
+            // Find where the left binding ends (next & or end of content before next &)
+            let leftBindingEnd = rightMiddlePos // The gap is from after left binding to start of right binding
+            
+            // Extract the substring between these two bindings
+            let startIdx = line.index(line.startIndex, offsetBy: leftMiddlePos)
+            let endIdx = line.index(line.startIndex, offsetBy: rightMiddlePos)
+            let segment = String(line[startIdx..<endIdx])
+            
+            // Count trailing spaces in this segment (after the binding text)
+            // The binding is like "&kp X" - we want the spaces after the X
+            if let lastSpace = segment.lastIndex(of: " ") {
+                let spacesAtEnd = segment.suffix(from: lastSpace).filter { $0 == " " || $0 == "\t" }.count
+                
+                // Also calculate average gap between other bindings for comparison
+                var otherGaps: [Int] = []
+                for i in 1..<bindingPositions.count {
+                    if i == middleIndex { continue } // Skip the middle gap
+                    let prevPos = bindingPositions[i - 1]
+                    let currPos = bindingPositions[i]
+                    let gap = currPos - prevPos
+                    otherGaps.append(gap)
+                }
+                
+                let middleGap = rightMiddlePos - leftMiddlePos
+                let avgOtherGap = otherGaps.isEmpty ? 0 : otherGaps.reduce(0, +) / otherGaps.count
+                
+                // Split keyboard: middle gap is significantly larger than average gap
+                // Using 1.5x as threshold since split keyboards have a noticeable visual gap
+                if avgOtherGap > 0 && middleGap > avgOtherGap + avgOtherGap / 2 {
+                    linesWithMiddleGap += 1
+                }
+            }
+        }
+        
+        // If most lines have a larger-than-average gap at the middle, it's a split keyboard
+        if totalBindingLines > 0 {
+            let splitRatio = Double(linesWithMiddleGap) / Double(totalBindingLines)
+            return splitRatio > 0.5
+        }
+        
+        return true // Default to split
     }
     
     private static func parseDisplayText(from rawCode: String) -> String {

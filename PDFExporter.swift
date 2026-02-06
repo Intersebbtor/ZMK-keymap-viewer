@@ -159,34 +159,53 @@ struct PrintableLayerGridView: View {
         
         let keysDifference = maxKeysInRow - keysInRow
         let oneKeyWidth = keyWidth + keySpacing
-        let extraGap = !isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference) * oneKeyWidth : 0
-        let totalGap = isThumbRow ? splitGap + 12 : splitGap
-        let adjustedGap = totalGap + extraGap
+        let extraGap = layout.isSplit && !isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference) * oneKeyWidth : 0
+        let baseGap = layout.isSplit ? (isThumbRow ? splitGap + 12 : splitGap) : 0
+        let adjustedGap = baseGap + extraGap
         
-        return HStack(spacing: keySpacing) {
-            // Left half
-            HStack(spacing: keySpacing) {
-                ForEach(0..<halfCount, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        PrintableKeyView(binding: binding, isThumbKey: isThumbRow, showRawBinding: showRawBindings)
-                            .frame(width: keyWidth, height: keyHeight)
+        let rowContent: AnyView
+        
+        if layout.isSplit {
+            rowContent = AnyView(
+                HStack(spacing: keySpacing) {
+                    // Left half
+                    HStack(spacing: keySpacing) {
+                        ForEach(0..<halfCount, id: \.self) { colIndex in
+                            if let binding = bindings[safe: colIndex] {
+                                PrintableKeyView(binding: binding, isThumbKey: isThumbRow, showRawBinding: showRawBindings)
+                                    .frame(width: keyWidth, height: keyHeight)
+                            }
+                        }
+                    }
+                    
+                    Spacer().frame(width: adjustedGap)
+                    
+                    // Right half
+                    HStack(spacing: keySpacing) {
+                        ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
+                            if let binding = bindings[safe: colIndex] {
+                                PrintableKeyView(binding: binding, isThumbKey: isThumbRow, showRawBinding: showRawBindings)
+                                    .frame(width: keyWidth, height: keyHeight)
+                            }
+                        }
                     }
                 }
-            }
-            
-            Spacer().frame(width: adjustedGap)
-            
-            // Right half
-            HStack(spacing: keySpacing) {
-                ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        PrintableKeyView(binding: binding, isThumbKey: isThumbRow, showRawBinding: showRawBindings)
-                            .frame(width: keyWidth, height: keyHeight)
+            )
+        } else {
+            rowContent = AnyView(
+                HStack(spacing: keySpacing) {
+                    ForEach(0..<keysInRow, id: \.self) { colIndex in
+                        if let binding = bindings[safe: colIndex] {
+                            PrintableKeyView(binding: binding, isThumbKey: isThumbRow, showRawBinding: showRawBindings)
+                                .frame(width: keyWidth, height: keyHeight)
+                        }
                     }
                 }
-            }
+            )
         }
-        .padding(.top, isThumbRow ? 4 : 0)
+        
+        return rowContent
+            .padding(.top, isThumbRow ? 4 : 0)
     }
     
     private func getBindingsForRow(_ row: Int) -> [KeyBinding] {

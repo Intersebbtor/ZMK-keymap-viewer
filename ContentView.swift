@@ -51,38 +51,57 @@ struct KeyboardGridView: View {
         let keysDifference = maxKeysInRow - keysInRow
         let oneKeyWidth = keyWidth + keySpacing
         
-        // For non-thumb rows with fewer keys: increase gap in the middle
-        let extraGap = !isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference) * oneKeyWidth : 0
-        let totalGap = isThumbRow ? splitGap + 20 : splitGap
-        let adjustedGap = totalGap + extraGap
+        // Only apply split-related gaps if this is a split keyboard
+        let extraGap = layout.isSplit && !isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference) * oneKeyWidth : 0
+        let baseGap = layout.isSplit ? (isThumbRow ? splitGap + 20 : splitGap) : 0
+        let adjustedGap = baseGap + extraGap
         
-        // For thumb row: add symmetric external padding
-        let externalPadding = isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference / 2) * oneKeyWidth : 0
+        // For thumb row: add symmetric external padding (only for split keyboards)
+        let externalPadding = layout.isSplit && isThumbRow && keysInRow < maxKeysInRow ? CGFloat(keysDifference / 2) * oneKeyWidth : 0
         
-        let rowContent = HStack(spacing: keySpacing) {
-            // Left half
-            HStack(spacing: keySpacing) {
-                ForEach(0..<halfCount, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        KeyView(binding: binding, isThumbKey: isThumbRow)
-                            .frame(width: keyWidth, height: keyHeight)
+        let rowContent: AnyView
+        
+        if layout.isSplit {
+            // Split keyboard: render left half, gap, right half
+            rowContent = AnyView(
+                HStack(spacing: keySpacing) {
+                    // Left half
+                    HStack(spacing: keySpacing) {
+                        ForEach(0..<halfCount, id: \.self) { colIndex in
+                            if let binding = bindings[safe: colIndex] {
+                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                    .frame(width: keyWidth, height: keyHeight)
+                            }
+                        }
+                    }
+                    
+                    // Gap between halves
+                    Spacer()
+                        .frame(width: adjustedGap)
+                    
+                    // Right half
+                    HStack(spacing: keySpacing) {
+                        ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
+                            if let binding = bindings[safe: colIndex] {
+                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                    .frame(width: keyWidth, height: keyHeight)
+                            }
+                        }
                     }
                 }
-            }
-            
-            // Gap between halves - wider for non-thumb rows with fewer keys
-            Spacer()
-                .frame(width: adjustedGap)
-            
-            // Right half
-            HStack(spacing: keySpacing) {
-                ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
-                    if let binding = bindings[safe: colIndex] {
-                        KeyView(binding: binding, isThumbKey: isThumbRow)
-                            .frame(width: keyWidth, height: keyHeight)
+            )
+        } else {
+            // Non-split keyboard: render all keys in a single row
+            rowContent = AnyView(
+                HStack(spacing: keySpacing) {
+                    ForEach(0..<keysInRow, id: \.self) { colIndex in
+                        if let binding = bindings[safe: colIndex] {
+                            KeyView(binding: binding, isThumbKey: isThumbRow)
+                                .frame(width: keyWidth, height: keyHeight)
+                        }
                     }
                 }
-            }
+            )
         }
         
         // Add external padding for thumb row if needed
@@ -242,7 +261,7 @@ struct ContentView: View {
         let maxKeysInRow = CGFloat(layout.keysPerRow.max() ?? 10)
         let keyWidth: CGFloat = layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
         let keySpacing: CGFloat = 3
-        let splitGap: CGFloat = 30
+        let splitGap: CGFloat = layout.isSplit ? 30 : 0
         let horizontalPadding: CGFloat = 40 // 20px on each side
         
         let totalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap + horizontalPadding

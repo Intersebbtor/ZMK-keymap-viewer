@@ -51,7 +51,7 @@ struct HUDView: View {
                         let maxKeysInRow = CGFloat(keymap.layout.keysPerRow.max() ?? 10)
                         let keyWidth: CGFloat = keymap.layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
                         let keySpacing: CGFloat = 3
-                        let splitGap: CGFloat = 30
+                        let splitGap: CGFloat = keymap.layout.isSplit ? 30 : 0
                         
                         let naturalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap
                         let rowCount = CGFloat(keymap.layout.rowCount)
@@ -105,7 +105,7 @@ struct HUDView: View {
         let maxKeysInRow = CGFloat(layout.keysPerRow.max() ?? 10)
         let keyWidth: CGFloat = layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
         let keySpacing: CGFloat = 3
-        let splitGap: CGFloat = 30
+        let splitGap: CGFloat = layout.isSplit ? 30 : 0
         
         let naturalWidth = (maxKeysInRow * keyWidth) + ((maxKeysInRow - 1) * keySpacing) + splitGap
         
