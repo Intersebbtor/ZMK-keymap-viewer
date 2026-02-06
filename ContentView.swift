@@ -374,12 +374,17 @@ struct ContentView: View {
     }
     
     private var layerTabsView: some View {
-        HStack {
-            Spacer()
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if let keymap = viewModel.keymap {
-                        ForEach(Array(keymap.layers.enumerated()), id: \.1.id) { index, layer in
+        VStack(spacing: 4) {
+            if let keymap = viewModel.keymap {
+                let layers = Array(keymap.layers.enumerated())
+                let maxPerRow = layers.count > 8 ? Int(ceil(Double(layers.count) / 2.0)) : layers.count
+                let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
+                    Array(layers[start..<min(start+maxPerRow, layers.count)])
+                }
+                ForEach(0..<rows.count, id: \ .self) { rowIdx in
+                    HStack(spacing: 8) {
+                        Spacer()
+                        ForEach(rows[rowIdx], id: \ .1.id) { index, layer in
                             Button(action: { selectedLayerIndex = index }) {
                                 Text(layer.name)
                                     .font(.system(size: 12, weight: selectedLayerIndex == index ? .semibold : .regular))
@@ -393,13 +398,12 @@ struct ContentView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                        Spacer()
                     }
                 }
-                .padding(.vertical, 8)
             }
-            .fixedSize(horizontal: true, vertical: false)
-            Spacer()
         }
+        .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
     }
     
