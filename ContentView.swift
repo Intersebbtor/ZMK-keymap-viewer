@@ -377,19 +377,20 @@ struct ContentView: View {
         VStack(spacing: 4) {
             if let keymap = viewModel.keymap {
                 let layers = Array(keymap.layers.enumerated())
-                let maxPerRow = layers.count > 8 ? Int(ceil(Double(layers.count) / 2.0)) : layers.count
+                // Split into rows of max 6 layers each
+                let maxPerRow = 6
                 let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
-                    Array(layers[start..<min(start+maxPerRow, layers.count)])
+                    Array(layers[start..<min(start + maxPerRow, layers.count)])
                 }
-                ForEach(0..<rows.count, id: \ .self) { rowIdx in
+                ForEach(0..<rows.count, id: \.self) { rowIdx in
                     HStack(spacing: 8) {
-                        Spacer()
-                        ForEach(rows[rowIdx], id: \ .1.id) { index, layer in
+                        ForEach(rows[rowIdx], id: \.1.id) { index, layer in
                             Button(action: { selectedLayerIndex = index }) {
                                 Text(layer.name)
-                                    .font(.system(size: 12, weight: selectedLayerIndex == index ? .semibold : .regular))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
+                                    .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
                                     .background(
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
@@ -398,11 +399,11 @@ struct ContentView: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        Spacer()
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
     }
