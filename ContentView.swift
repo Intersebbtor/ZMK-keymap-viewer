@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - VisualEffectView for background blur
 struct VisualEffectView: NSViewRepresentable {
@@ -336,6 +337,13 @@ struct ContentView: View {
                     }
                 
                 Button {
+                    browseFile()
+                } label: {
+                    Text("Browse...")
+                }
+                .controlSize(.small)
+                
+                Button {
                     loadFromPathText()
                 } label: {
                     Label("Load", systemImage: "folder")
@@ -450,6 +458,33 @@ struct ContentView: View {
         guard path.hasSuffix(".keymap") else { return }
         guard FileManager.default.fileExists(atPath: path) else { return }
         loadKeymap(from: path)
+        // Keep menu bar window active after loading
+        DispatchQueue.main.async {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    private func browseFile() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Select a .keymap file"
+        
+        // UTType(filenameExtension:) returns an optional. We can safely compactMap it into the array.
+        panel.allowedContentTypes = [UTType(filenameExtension: "keymap")].compactMap { $0 }
+        
+        guard panel.runModal() == .OK, let url = panel.url else {
+            // Keep menu bar window active even if they click "Cancel"
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            return
+        }
+        
+        pathText = url.path
+        loadFromPathText()
+        
         // Keep menu bar window active after loading
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
