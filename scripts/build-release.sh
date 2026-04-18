@@ -17,8 +17,15 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
 cp .build/release/ZMKKeymapViewer "${APP_BUNDLE}/Contents/MacOS/"
 
+# Extract version from source file
+APP_VERSION=$(grep 'let appVersion =' ZMKKeymapViewer.swift | cut -d '"' -f 2)
+if [ -z "$APP_VERSION" ]; then
+    echo "⚠️ Warning: Could not extract appVersion. Defaulting to 1.0.0"
+    APP_VERSION="1.0.0"
+fi
+
 # Create Info.plist
-cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
+cat > "${APP_BUNDLE}/Contents/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -30,9 +37,9 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.sebietter.zmk-keymap-viewer</string>
     <key>CFBundleVersion</key>
-    <string>1.1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleExecutable</key>
     <string>ZMKKeymapViewer</string>
     <key>CFBundlePackageType</key>
@@ -45,7 +52,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <true/>
 </dict>
 </plist>
-PLIST
+EOF
 
 # Ad-hoc code sign (avoids "damaged app" error, allows right-click → Open)
 echo "🔏 Code signing..."
