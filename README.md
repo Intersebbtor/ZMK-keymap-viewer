@@ -68,7 +68,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 With two small firmware modules, the app knows what happens on your keyboard:
 
-- **Active layer:** The menu and the HUD switch to the layer you are on, and the menu bar icon shows a split keyboard with the layer number between the halves (layers 0–6, a numbered square above).
+- **Active layer:** The menu and the HUD switch to the layer you are on, and the menu bar icon shows a split keyboard with the layer number between the halves.
 - **Held keys:** Keys light up in the HUD while you hold them, so you see at a glance which key you hit.
 - **No flicker:** The HUD wakes on every key press, not only on layer changes, and doesn't fade while a key is held.
 

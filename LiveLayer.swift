@@ -52,24 +52,15 @@ enum ActiveLayerResolver {
 enum MenuBarSymbol: Equatable {
     /// SF Symbol "keyboard"
     case keyboard
-    /// Split keyboard with the layer number between the halves (SplitKeyboardIcon)
+    /// Split keyboard with the layer number between the halves (SplitKeyboardIcon).
+    /// One width for all single-digit layers, so the menu bar item doesn't jump.
     case splitKeyboard(layer: Int)
-    /// SF Symbol "N.square.fill"
-    case numberedSquare(layer: Int)
-
-    /// The split keyboard icon covers the common layers; it keeps one width,
-    /// so the menu bar item doesn't jump between them
-    static let splitKeyboardLayers = 0...6
-    /// SF Symbols has numbered squares up to 50
-    private static let numberedSquareLayers = 0...50
 
     /// The live layer as a split keyboard, including 0 for the base layer.
-    /// The plain keyboard without a connected keyboard or beyond the numbered squares.
+    /// The plain keyboard without a connected keyboard.
     static func forLayer(_ liveIndex: Int?, showLayer: Bool) -> MenuBarSymbol {
         guard showLayer, let index = liveIndex else { return .keyboard }
-        if splitKeyboardLayers.contains(index) { return .splitKeyboard(layer: index) }
-        if numberedSquareLayers.contains(index) { return .numberedSquare(layer: index) }
-        return .keyboard
+        return .splitKeyboard(layer: index)
     }
 }
 

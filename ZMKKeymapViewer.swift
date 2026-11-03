@@ -34,7 +34,8 @@ struct ZMKKeymapViewerApp: App {
     }
 }
 
-/// The live layer number (0 on the base layer), or a keyboard icon without one.
+/// A split keyboard with the live layer number (0 on the base layer), or a
+/// plain keyboard icon without a live layer.
 /// Always a single fixed-width Image, so the status item keeps its size.
 struct MenuBarIcon: View {
     @ObservedObject var appState: AppState
@@ -46,8 +47,6 @@ struct MenuBarIcon: View {
             Image(systemName: "keyboard")
         case let .splitKeyboard(layer):
             Image(nsImage: SplitKeyboardIcon.image(layer: layer))
-        case let .numberedSquare(layer):
-            Image(systemName: "\(layer).square.fill")
         }
     }
 }

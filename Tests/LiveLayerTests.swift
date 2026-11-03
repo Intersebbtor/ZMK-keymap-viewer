@@ -114,14 +114,9 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(MenuBarSymbol.forLayer(0, showLayer: true), .splitKeyboard(layer: 0))
     }
 
-    func testMenuBarShowsSplitKeyboardUpToLayerSix() {
+    func testMenuBarShowsSplitKeyboardForEveryLayer() {
         XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: true), .splitKeyboard(layer: 3))
-        XCTAssertEqual(MenuBarSymbol.forLayer(6, showLayer: true), .splitKeyboard(layer: 6))
-    }
-
-    func testMenuBarShowsNumberedSquareAboveLayerSix() {
-        XCTAssertEqual(MenuBarSymbol.forLayer(7, showLayer: true), .numberedSquare(layer: 7))
-        XCTAssertEqual(MenuBarSymbol.forLayer(50, showLayer: true), .numberedSquare(layer: 50))
+        XCTAssertEqual(MenuBarSymbol.forLayer(31, showLayer: true), .splitKeyboard(layer: 31))
     }
 
     func testMenuBarShowsKeyboardWithoutLiveLayer() {
@@ -132,15 +127,13 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: false), .keyboard)
     }
 
-    func testMenuBarShowsKeyboardBeyondNumberedSquares() {
-        XCTAssertEqual(MenuBarSymbol.forLayer(51, showLayer: true), .keyboard)
-    }
-
     func testSplitKeyboardIconIsTemplate() {
         let image = SplitKeyboardIcon.image(layer: 2)
         XCTAssertTrue(image.isTemplate)
         XCTAssertEqual(image.size, SplitKeyboardIcon.size)
         XCTAssertTrue(SplitKeyboardIcon.image(layer: 2) === image, "cached per layer")
+        XCTAssertEqual(SplitKeyboardIcon.image(layer: 9).size, SplitKeyboardIcon.size, "single digits share one width")
+        XCTAssertGreaterThan(SplitKeyboardIcon.image(layer: 31).size.width, SplitKeyboardIcon.size.width, "two digits widen the icon")
     }
 
     // MARK: - Layer Selection
