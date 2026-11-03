@@ -57,7 +57,7 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 
 ## 📡 Live Layer
 
-With two small firmware modules, the app shows the layer you are currently on: the menu and the HUD switch along, the HUD wakes up on every layer change, and the menu bar shows the layer name. Works over USB and Bluetooth, no extra macOS permission needed.
+With two small firmware modules, the app shows the layer you are currently on: the menu and the HUD switch along, the HUD wakes up on every layer change, and the menu bar icon shows the layer number. Works over USB and Bluetooth, no extra macOS permission needed.
 
 Clicking a layer tab still works; it holds until your next layer change on the keyboard. Both behaviors can be turned off in Settings → Live Layer.
 

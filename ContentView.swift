@@ -547,7 +547,7 @@ struct ContentView: View {
 
                     Toggle("Follow the keyboard's active layer", isOn: $appState.followLiveLayer)
                         .font(.caption2)
-                    Toggle("Show layer name in menu bar", isOn: $appState.showLayerInMenuBar)
+                    Toggle("Show layer number in menu bar", isOn: $appState.showLayerInMenuBar)
                         .font(.caption2)
 
                     Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules.")

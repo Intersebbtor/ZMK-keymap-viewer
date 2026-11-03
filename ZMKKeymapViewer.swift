@@ -42,14 +42,12 @@ struct ZMKKeymapViewerApp: App {
                     appState.setupHUDPanel(with: keymapViewModel)
                 }
         } label: {
-            if appState.showLayerInMenuBar,
-               appState.liveDeviceName != nil,
-               let layerName = keymapViewModel.liveLayerName {
-                Label(layerName, systemImage: "keyboard")
-                    .labelStyle(.titleAndIcon)
-            } else {
-                Image(systemName: "keyboard")
-            }
+            // Always a single Image: swapping the label's view type rebuilds
+            // the status item and swallows clicks
+            Image(systemName: MenuBarSymbol.name(
+                liveIndex: keymapViewModel.layerSelection.liveIndex,
+                showLayer: appState.showLayerInMenuBar
+            ))
         }
         .menuBarExtraStyle(.window)
     }

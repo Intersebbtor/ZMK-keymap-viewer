@@ -58,6 +58,29 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(ActiveLayerResolver.highestLayer(activeLayers: 0x8000_0001, defaultLayers: 0x1), 31)
     }
 
+    // MARK: - Menu Bar Symbol
+
+    func testMenuBarShowsKeyboardOnBaseLayer() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 0, showLayer: true), "keyboard")
+    }
+
+    func testMenuBarShowsLayerNumber() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 3, showLayer: true), "3.square.fill")
+    }
+
+    func testMenuBarShowsKeyboardWithoutLiveLayer() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: nil, showLayer: true), "keyboard")
+    }
+
+    func testMenuBarShowsKeyboardWhenDisabled() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 3, showLayer: false), "keyboard")
+    }
+
+    func testMenuBarShowsKeyboardBeyondNumberedSymbols() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 50, showLayer: true), "50.square.fill")
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 51, showLayer: true), "keyboard")
+    }
+
     // MARK: - Layer Selection
 
     func testLiveLayerIsDisplayedWhenFollowing() {
