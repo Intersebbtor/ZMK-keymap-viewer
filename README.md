@@ -2,6 +2,8 @@
 
 A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
 
+With two small firmware modules it follows your keyboard live: it shows the layer you are on and lights up the keys you press, in a floating HUD that stays out of your way.
+
 <img width="751" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
@@ -17,6 +19,8 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 - ⌨️ **Auto-detect layout** — Sweep, Corne, Sofle, Lily58, and more
 - 👁️ [**HUD Mode**](#️-hud-mode) — Transparent floating overlay (toggle with `Cmd+Shift+K`)
 - 📡 [**Live layer**](#-live-layer) — Follows the layer you're on, over USB or Bluetooth
+- ✨ [**Key highlighting**](#-live-layer) — Keys light up in the HUD while you hold them
+- 🔢 **Layer in the menu bar** — The menu bar icon shows the active layer number
 - 📝 [**Alias support**](#-alias-comments) — Add `/* =€ */` comments to show custom labels
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
@@ -29,9 +33,13 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 1. Go to [**Releases**](../../releases/latest)
 2. Download `ZMK-Keymap-Viewer-vX.X.X.dmg`
 3. Open the DMG and drag **ZMK Keymap Viewer** to Applications
-4. **First launch:** Right-click → **Open** → click **Open** (bypasses Gatekeeper)
+4. **First launch:** The app is not notarized. If macOS refuses to open it or says it is damaged, open **System Settings → Privacy & Security** and click **Open Anyway**, or run:
 
-> **Build from source:** `swift build -c release && .build/release/ZMKKeymapViewer`
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/ZMK Keymap Viewer.app"
+   ```
+
+> **Build from source:** `./scripts/build-release.sh` builds the app bundle and the DMG (the version comes from `appVersion` in `ZMKKeymapViewer.swift`).
 
 ---
 
@@ -49,17 +57,24 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 <img width="700" alt="HUD Mode" src="assets/hud_screenshot.png" />
 
 - **Always-on-top** floating overlay
-- **Auto-fades** after inactivity, wakes on hover
-- **Resizable & draggable** — position it anywhere
-- Customize opacity and timeout in Settings
+- **Auto-fades** after inactivity, wakes on hover, on key presses and on layer changes
+- **Stays visible while you hold a key**, so a held layer (`&mo`, `&lt`, `&mt`) stays on screen while you look for a key
+- **Draggable** by the handle bar at the top, **resizable** from any edge or corner
+- Customize opacity, blur and timeout in Settings
 
 ---
 
 ## 📡 Live Layer
 
-With two small firmware modules, the app shows the layer you are currently on: the menu and the HUD switch along, the HUD wakes up on every layer change, and the menu bar icon shows the layer number. Works over USB and Bluetooth, no extra macOS permission needed.
+With two small firmware modules, the app knows what happens on your keyboard:
 
-Clicking a layer tab still works; it holds until your next layer change on the keyboard. Both behaviors can be turned off in Settings → Live Layer.
+- **Active layer:** The menu and the HUD switch to the layer you are on, and the menu bar icon shows its number (a plain keyboard on the base layer).
+- **Held keys:** Keys light up in the HUD while you hold them, so you see at a glance which key you hit.
+- **No flicker:** The HUD wakes on every key press, not only on layer changes, and doesn't fade while a key is held.
+
+Works over USB and Bluetooth, no extra macOS permission needed. Settings → Live Layer shows whether the keyboard is connected and which layer it is on.
+
+Clicking a layer tab still works; it holds until your next layer change on the keyboard. Following the keyboard and the menu bar number can be turned off in Settings → Live Layer.
 
 **Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
 
@@ -114,6 +129,8 @@ The app parses your `.keymap` file and extracts:
 - All layers defined in the `keymap {}` block
 - Bindings like `&kp`, `&lt`, `&mt`, `&trans`, `&bt`, and custom behaviors
 - Layer names from comments
+
+For the live layer it listens for the Raw HID reports of [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) (usage page `0xFF60`): a layer mask on every layer change and a key position on every press and release. The key position is the binding's index in the keymap, so highlighting needs no extra layout config.
 
 ---
 
