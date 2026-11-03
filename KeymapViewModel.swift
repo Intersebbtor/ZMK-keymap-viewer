@@ -6,7 +6,17 @@ class KeymapViewModel: ObservableObject {
     @Published var currentFilePath: String?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
-    
+    /// Displayed and live layer, shared by the menu and the HUD
+    @Published private(set) var layerSelection = LayerSelection()
+
+    var displayedLayerIndex: Int { layerSelection.displayedIndex }
+
+    /// Name of the keyboard's active layer, or "Layer N" if the keymap file does not have it
+    var liveLayerName: String? {
+        guard let index = layerSelection.liveIndex else { return nil }
+        return keymap?.layers[safe: index]?.name ?? "Layer \(index)"
+    }
+
     private var fileMonitor: FileMonitor?
     private var cancellables = Set<AnyCancellable>()
     
@@ -42,6 +52,12 @@ class KeymapViewModel: ObservableObject {
                 
                 if let parsed = KeymapParser.parse(from: data, filePath: filePath) {
                     DispatchQueue.main.async {
+                        // A reload of the same file keeps the selected layer
+                        if filePath == self.currentFilePath {
+                            self.layerSelection.clamp(layerCount: parsed.layers.count)
+                        } else {
+                            self.layerSelection.reset(layerCount: parsed.layers.count)
+                        }
                         self.keymap = parsed
                         self.currentFilePath = filePath
                         self.isLoading = false
@@ -71,6 +87,20 @@ class KeymapViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Layer selection
+
+    func selectLayer(_ index: Int) {
+        layerSelection.selectManually(index)
+    }
+
+    func applyLiveLayer(_ index: Int, follow: Bool) {
+        layerSelection.applyLive(index, layerCount: keymap?.layers.count ?? 0, follow: follow)
+    }
+
+    func clearLiveLayer() {
+        layerSelection.clearLive()
+    }
+
     func reloadCurrentKeymap() {
         if let path = currentFilePath {
             loadKeymap(from: path)

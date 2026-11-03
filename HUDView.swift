@@ -3,8 +3,9 @@ import SwiftUI
 struct HUDView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
-    @State private var selectedLayerIndex: Int = 0
-    
+
+    private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
+
     var body: some View {
         VStack(spacing: 12) {
             // Discrete drag bar at the top
@@ -19,7 +20,7 @@ struct HUDView: View {
                     ForEach(0..<keymap.layers.count, id: \.self) { index in
                         Button(action: { 
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedLayerIndex = index 
+                                viewModel.selectLayer(index)
                             }
                         }) {
                             Text(keymap.layers[index].name)

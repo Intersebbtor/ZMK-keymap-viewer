@@ -6,16 +6,30 @@ let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
 struct ZMKKeymapViewerApp: App {
-    @StateObject private var appState = AppState()
-    @StateObject private var keymapViewModel = KeymapViewModel()
-    
+    @StateObject private var appState: AppState
+    @StateObject private var keymapViewModel: KeymapViewModel
+
     init() {
         print("[App] ZMKKeymapViewer starting...")
-        
+
         // Minimal startup configuration
         NSSetUncaughtExceptionHandler { exception in
             print("[App] CRASH: \(exception)")
         }
+
+        // Wire up at launch instead of on first menu open, so the live layer,
+        // the menu bar label and the HUD work right away
+        let state = AppState()
+        let viewModel = KeymapViewModel()
+        state.keymapViewModel = viewModel
+        if let mostRecent = state.recentKeymaps.first {
+            viewModel.loadKeymap(from: mostRecent)
+        }
+        DispatchQueue.main.async {
+            state.setupHUDPanel(with: viewModel)
+        }
+        _appState = StateObject(wrappedValue: state)
+        _keymapViewModel = StateObject(wrappedValue: viewModel)
     }
     
     var body: some Scene {
@@ -28,7 +42,14 @@ struct ZMKKeymapViewerApp: App {
                     appState.setupHUDPanel(with: keymapViewModel)
                 }
         } label: {
-            Image(systemName: "keyboard")
+            if appState.showLayerInMenuBar,
+               appState.liveDeviceName != nil,
+               let layerName = keymapViewModel.liveLayerName {
+                Label(layerName, systemImage: "keyboard")
+                    .labelStyle(.titleAndIcon)
+            } else {
+                Image(systemName: "keyboard")
+            }
         }
         .menuBarExtraStyle(.window)
     }
@@ -49,6 +70,12 @@ class AppState: ObservableObject {
     @AppStorage("hudUseMaterial") var hudUseMaterial = true
     @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
     
+    // Live Layer Settings
+    @AppStorage("followLiveLayer") var followLiveLayer = true {
+        didSet { if followLiveLayer { syncToLiveLayer() } }
+    }
+    @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
+
     // Export Settings
     @AppStorage("exportDirectory") var exportDirectory: String = "Desktop"
     
@@ -65,14 +92,19 @@ class AppState: ObservableObject {
     private let maxRecentKeymaps = 5
     
     var floatingPanel: FloatingPanel?
-    
+
     var keymapViewModel: KeymapViewModel?
-    
+
+    // Live layer from the keyboard (zmk-keypeek-layer-notifier firmware module)
+    private let liveLayerMonitor = LiveLayerMonitor()
+    @Published private(set) var liveDeviceName: String?
+
     init() {
         AppState.instance = self
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()
+        setupLiveLayerMonitor()
         
         // Check for updates silently on launch
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
@@ -95,6 +127,39 @@ class AppState: ObservableObject {
         }
     }
     
+    func setupLiveLayerMonitor() {
+        liveLayerMonitor.onConnectionChange = { [weak self] connected in
+            guard let self = self else { return }
+            self.liveDeviceName = self.liveLayerMonitor.connectedDeviceName
+            if connected {
+                // The firmware only reports changes, so assume the base layer
+                // until the first one arrives
+                self.handleLiveLayer(0)
+            } else {
+                self.keymapViewModel?.clearLiveLayer()
+            }
+        }
+        liveLayerMonitor.onPacket = { [weak self] packet in
+            guard case let .layerState(defaultLayers, activeLayers) = packet else { return }
+            let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
+            self?.handleLiveLayer(layer)
+        }
+        liveLayerMonitor.start()
+    }
+
+    private func handleLiveLayer(_ index: Int) {
+        keymapViewModel?.applyLiveLayer(index, follow: followLiveLayer)
+        // Wake a faded HUD; it fades again after the usual timeout
+        if followLiveLayer, floatingPanel?.isVisible == true {
+            resetInactivity()
+        }
+    }
+
+    private func syncToLiveLayer() {
+        guard let live = keymapViewModel?.layerSelection.liveIndex else { return }
+        keymapViewModel?.applyLiveLayer(live, follow: true)
+    }
+
     func updateShortcut(keyCode: Int, modifiers: Int) {
         shortcutKeyCode = keyCode
         shortcutModifiers = modifiers

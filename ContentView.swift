@@ -132,7 +132,6 @@ struct KeyboardGridView: View {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
-    @State private var selectedLayerIndex: Int = 0
     @State private var pathText: String = ""
     @State private var isRecordingShortcut = false
     
@@ -373,6 +372,8 @@ struct ContentView: View {
         .padding()
     }
     
+    private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
+
     private var layerTabsView: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 4) {
@@ -386,7 +387,7 @@ struct ContentView: View {
                     ForEach(0..<rows.count, id: \.self) { rowIdx in
                         HStack(spacing: 8) {
                             ForEach(rows[rowIdx], id: \.1.id) { index, layer in
-                                Button(action: { selectedLayerIndex = index }) {
+                                Button(action: { viewModel.selectLayer(index) }) {
                                     Text(layer.name)
                                         .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
                                         .lineLimit(1)
@@ -517,7 +518,43 @@ struct ContentView: View {
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
-                
+
+                Divider()
+
+                // Live Layer Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Live Layer", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption.bold())
+
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(appState.liveDeviceName != nil ? Color.green : Color.secondary.opacity(0.4))
+                            .frame(width: 7, height: 7)
+                        if let device = appState.liveDeviceName {
+                            Text("\(device) connected")
+                                .font(.caption2)
+                            if let layerName = viewModel.liveLayerName {
+                                Text("· \(layerName)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("No keyboard with layer notifier found")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Toggle("Follow the keyboard's active layer", isOn: $appState.followLiveLayer)
+                        .font(.caption2)
+                    Toggle("Show layer name in menu bar", isOn: $appState.showLayerInMenuBar)
+                        .font(.caption2)
+
+                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+
                 Divider()
                 
                 // HUD Appearance
@@ -704,7 +741,7 @@ struct ContentView: View {
         pathText = path
         viewModel.loadKeymap(from: path)
         appState.addRecentKeymap(path)
-        selectedLayerIndex = 0
+        // The view model resets the displayed layer when a different file loads
         // Keep menu bar window active
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
