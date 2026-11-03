@@ -26,6 +26,11 @@ struct KeymapLayer: Identifiable {
     let bindings: [KeyBinding]
     let rowCount: Int
     let columnCount: Int
+
+    /// ZMK key position of a binding: its index in the layer's bindings
+    func position(of binding: KeyBinding) -> Int? {
+        bindings.firstIndex { $0.id == binding.id }
+    }
 }
 
 /// Detected keyboard layout configuration

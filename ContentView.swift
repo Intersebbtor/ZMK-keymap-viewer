@@ -24,7 +24,9 @@ struct VisualEffectView: NSViewRepresentable {
 struct KeyboardGridView: View {
     let layer: KeymapLayer
     let layout: KeyboardLayout
-    
+    /// Key positions currently held on the keyboard (live layer feature)
+    var pressedPositions: Set<Int> = []
+
     private var keyWidth: CGFloat {
         layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
     }
@@ -69,7 +71,7 @@ struct KeyboardGridView: View {
                     HStack(spacing: keySpacing) {
                         ForEach(0..<halfCount, id: \.self) { colIndex in
                             if let binding = bindings[safe: colIndex] {
-                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                     .frame(width: keyWidth, height: keyHeight)
                             }
                         }
@@ -83,7 +85,7 @@ struct KeyboardGridView: View {
                     HStack(spacing: keySpacing) {
                         ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
                             if let binding = bindings[safe: colIndex] {
-                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                     .frame(width: keyWidth, height: keyHeight)
                             }
                         }
@@ -96,7 +98,7 @@ struct KeyboardGridView: View {
                 HStack(spacing: keySpacing) {
                     ForEach(0..<keysInRow, id: \.self) { colIndex in
                         if let binding = bindings[safe: colIndex] {
-                            KeyView(binding: binding, isThumbKey: isThumbRow)
+                            KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                 .frame(width: keyWidth, height: keyHeight)
                         }
                     }
@@ -127,12 +129,16 @@ struct KeyboardGridView: View {
     private func getBindingsForRow(_ row: Int) -> [KeyBinding] {
         return layer.bindings.filter { $0.row == row }.sorted { $0.column < $1.column }
     }
+
+    private func isPressed(_ binding: KeyBinding) -> Bool {
+        guard !pressedPositions.isEmpty, let position = layer.position(of: binding) else { return false }
+        return pressedPositions.contains(position)
+    }
 }
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
-    @State private var selectedLayerIndex: Int = 0
     @State private var pathText: String = ""
     @State private var isRecordingShortcut = false
     
@@ -145,8 +151,12 @@ struct ContentView: View {
             
             ZStack {
                 if appState.isSettingsVisible {
-                    settingsView
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    // Scrollable, so tall settings never push the header and
+                    // footer out of the popover (which also broke clicks)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        settingsView
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else if viewModel.keymap != nil {
                     if appState.isHUDModeEnabled {
                         hudActiveView
@@ -251,6 +261,11 @@ struct ContentView: View {
                 print("[ContentView] No recent keymaps found")
             }
         }
+        // Reopening the popover starts on the keymap, not on the settings
+        .background(WindowHideObserver {
+            print("[ContentView] Popover hidden")
+            appState.isSettingsVisible = false
+        })
     }
     
     private func calculateScale(for layout: KeyboardLayout) -> CGFloat {
@@ -373,6 +388,8 @@ struct ContentView: View {
         .padding()
     }
     
+    private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
+
     private var layerTabsView: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 4) {
@@ -386,7 +403,7 @@ struct ContentView: View {
                     ForEach(0..<rows.count, id: \.self) { rowIdx in
                         HStack(spacing: 8) {
                             ForEach(rows[rowIdx], id: \.1.id) { index, layer in
-                                Button(action: { selectedLayerIndex = index }) {
+                                Button(action: { viewModel.selectLayer(index) }) {
                                     Text(layer.name)
                                         .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
                                         .lineLimit(1)
@@ -420,7 +437,8 @@ struct ContentView: View {
                 
                 KeyboardGridView(
                     layer: layer,
-                    layout: layout
+                    layout: layout,
+                    pressedPositions: viewModel.pressedPositions
                 )
                 .padding(20)
             }
@@ -445,7 +463,7 @@ struct ContentView: View {
     }
     
     private func loadFromPathText() {
-        let path = pathText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = (pathText.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
         guard !path.isEmpty else { return }
         guard path.hasSuffix(".keymap") else { return }
         guard FileManager.default.fileExists(atPath: path) else { return }
@@ -517,7 +535,43 @@ struct ContentView: View {
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
-                
+
+                Divider()
+
+                // Live Layer Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Live Layer", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption.bold())
+
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(appState.liveDeviceName != nil ? Color.green : Color.secondary.opacity(0.4))
+                            .frame(width: 7, height: 7)
+                        if let device = appState.liveDeviceName {
+                            Text("\(device) connected")
+                                .font(.caption2)
+                            if let layerName = viewModel.liveLayerName {
+                                Text("· \(layerName)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("No keyboard with layer notifier found")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Toggle("Follow the keyboard's active layer", isOn: $appState.followLiveLayer)
+                        .font(.caption2)
+                    Toggle("Show layer number in menu bar", isOn: $appState.showLayerInMenuBar)
+                        .font(.caption2)
+
+                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+
                 Divider()
                 
                 // HUD Appearance
@@ -701,10 +755,11 @@ struct ContentView: View {
     }
     
     private func loadKeymap(from path: String) {
-        pathText = path
+        // Show ~ instead of the home folder: shorter, and keeps the user name out of screenshots
+        pathText = (path as NSString).abbreviatingWithTildeInPath
         viewModel.loadKeymap(from: path)
         appState.addRecentKeymap(path)
-        selectedLayerIndex = 0
+        // The view model resets the displayed layer when a different file loads
         // Keep menu bar window active
         DispatchQueue.main.async {
             NSApp.activate(ignoringOtherApps: true)
@@ -719,7 +774,9 @@ struct ContentView: View {
 struct KeyView: View {
     let binding: KeyBinding
     let isThumbKey: Bool
-    
+    /// Held down on the keyboard right now
+    var isPressed: Bool = false
+
     @State private var isHovered = false
     @State private var showTooltip = false
     
@@ -749,10 +806,15 @@ struct KeyView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(keyBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-            
+
+            if isPressed {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.accentColor.opacity(0.55))
+            }
+
             // Key border - highlight aliased keys with a subtle accent
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(borderColor, lineWidth: isHovered ? 2 : 1)
+                .strokeBorder(borderColor, lineWidth: isHovered || isPressed ? 2 : 1)
             
             // Key label
             Text(displayLabel)
@@ -763,6 +825,8 @@ struct KeyView: View {
                 .minimumScaleFactor(0.5)
                 .padding(4)
         }
+        .scaleEffect(isPressed ? 0.94 : 1)
+        .animation(.easeOut(duration: 0.08), value: isPressed)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
@@ -790,7 +854,7 @@ struct KeyView: View {
     }
     
     private var borderColor: Color {
-        if isHovered {
+        if isHovered || isPressed {
             return Color.accentColor
         }
         return Color.primary.opacity(0.1)

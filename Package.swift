@@ -24,7 +24,11 @@ let package = Package(
                 "FloatingPanel.swift",
                 "HUDView.swift",
                 "GlobalShortcutManager.swift",
-                "PDFExporter.swift"
+                "PDFExporter.swift",
+                "LiveLayer.swift",
+                "LiveLayerMonitor.swift",
+                "WindowControls.swift",
+                "SplitKeyboardIcon.swift"
             ]
         ),
         .testTarget(

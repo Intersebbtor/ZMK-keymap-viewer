@@ -1,36 +1,53 @@
 import SwiftUI
 import AppKit
 
-let appVersion = "1.4.0"
+let appVersion = "1.5.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
 struct ZMKKeymapViewerApp: App {
+    // Created lazily by SwiftUI once the app is set up. Creating it in init()
+    // registers event monitors too early and leaves the menu unclickable.
     @StateObject private var appState = AppState()
-    @StateObject private var keymapViewModel = KeymapViewModel()
-    
+
     init() {
         print("[App] ZMKKeymapViewer starting...")
-        
+
         // Minimal startup configuration
         NSSetUncaughtExceptionHandler { exception in
             print("[App] CRASH: \(exception)")
         }
     }
-    
+
     var body: some Scene {
         MenuBarExtra {
             ContentView()
                 .environmentObject(appState)
-                .environmentObject(keymapViewModel)
+                .environmentObject(appState.keymapViewModel)
                 .onAppear {
-                    appState.keymapViewModel = keymapViewModel
-                    appState.setupHUDPanel(with: keymapViewModel)
+                    appState.setupHUDPanel(with: appState.keymapViewModel)
                 }
         } label: {
-            Image(systemName: "keyboard")
+            MenuBarIcon(appState: appState, viewModel: appState.keymapViewModel)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// A split keyboard with the live layer number (0 on the base layer), or a
+/// plain keyboard icon without a live layer.
+/// Always a single fixed-width Image, so the status item keeps its size.
+struct MenuBarIcon: View {
+    @ObservedObject var appState: AppState
+    @ObservedObject var viewModel: KeymapViewModel
+
+    var body: some View {
+        switch MenuBarSymbol.forLayer(viewModel.layerSelection.liveIndex, showLayer: appState.showLayerInMenuBar) {
+        case .keyboard:
+            Image(systemName: "keyboard")
+        case let .splitKeyboard(layer):
+            Image(nsImage: SplitKeyboardIcon.image(layer: layer))
+        }
     }
 }
 
@@ -49,6 +66,12 @@ class AppState: ObservableObject {
     @AppStorage("hudUseMaterial") var hudUseMaterial = true
     @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
     
+    // Live Layer Settings
+    @AppStorage("followLiveLayer") var followLiveLayer = true {
+        didSet { if followLiveLayer { syncToLiveLayer() } }
+    }
+    @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
+
     // Export Settings
     @AppStorage("exportDirectory") var exportDirectory: String = "Desktop"
     
@@ -65,22 +88,34 @@ class AppState: ObservableObject {
     private let maxRecentKeymaps = 5
     
     var floatingPanel: FloatingPanel?
-    
-    var keymapViewModel: KeymapViewModel?
-    
+
+    let keymapViewModel = KeymapViewModel()
+
+    // Live layer from the keyboard (zmk-keypeek-layer-notifier firmware module)
+    private let liveLayerMonitor = LiveLayerMonitor()
+    @Published private(set) var liveDeviceName: String?
+
     init() {
         AppState.instance = self
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()
+        setupLiveLayerMonitor()
         
         // Check for updates silently on launch
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             self?.checkForUpdates()
         }
         
-        // Deferred initialization of the HUD to avoid blocking startup
-        // The keymapViewModel will be assigned from ZMKKeymapViewerApp
+        // Load the keymap and set up the HUD at launch instead of on first
+        // menu open, so the live layer and the HUD work right away
+        if let mostRecent = recentKeymaps.first {
+            keymapViewModel.loadKeymap(from: mostRecent)
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.setupHUDPanel(with: self.keymapViewModel)
+        }
     }
     
     func setupGlobalShortcut() {
@@ -95,6 +130,55 @@ class AppState: ObservableObject {
         }
     }
     
+    func setupLiveLayerMonitor() {
+        liveLayerMonitor.onConnectionChange = { [weak self] connected in
+            guard let self = self else { return }
+            self.liveDeviceName = self.liveLayerMonitor.connectedDeviceName
+            if connected {
+                // The firmware only reports changes, so assume the base layer
+                // until the first one arrives
+                self.handleLiveLayer(0)
+            } else {
+                self.keymapViewModel.clearLiveLayer()
+            }
+        }
+        liveLayerMonitor.onPacket = { [weak self] packet in
+            guard let self = self else { return }
+            switch packet {
+            case let .layerState(defaultLayers, activeLayers):
+                let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
+                self.handleLiveLayer(layer)
+            case let .keyEvent(position, pressed):
+                self.keymapViewModel.setKey(position: position, pressed: pressed)
+                // Every key press keeps the HUD awake, not only layer changes,
+                // so it doesn't light up seemingly at random while typing.
+                // The timeout starts once the last held key is released.
+                if pressed || self.keymapViewModel.pressedPositions.isEmpty {
+                    self.wakeHUD()
+                }
+            }
+        }
+        liveLayerMonitor.start()
+    }
+
+    private func handleLiveLayer(_ index: Int) {
+        print("[LiveLayer] Active layer: \(index)")
+        keymapViewModel.applyLiveLayer(index, follow: followLiveLayer)
+        wakeHUD()
+    }
+
+    /// Wake a faded HUD; it fades again after the usual timeout
+    private func wakeHUD() {
+        if followLiveLayer, floatingPanel?.isVisible == true {
+            resetInactivity()
+        }
+    }
+
+    private func syncToLiveLayer() {
+        guard let live = keymapViewModel.layerSelection.liveIndex else { return }
+        keymapViewModel.applyLiveLayer(live, follow: true)
+    }
+
     func updateShortcut(keyCode: Int, modifiers: Int) {
         shortcutKeyCode = keyCode
         shortcutModifiers = modifiers
@@ -170,6 +254,9 @@ class AppState: ObservableObject {
             self.activityTimer?.invalidate()
             
             guard self.hudTimeout > 0 else { return }
+            // Don't fade while a key is held, e.g. a layer key: the user is
+            // probably looking for a key on that layer
+            guard self.keymapViewModel.pressedPositions.isEmpty else { return }
             
             self.activityTimer = Timer.scheduledTimer(withTimeInterval: self.hudTimeout, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 1.0)) {
@@ -191,12 +278,10 @@ class AppState: ObservableObject {
             }
         } else {
             // If the panel is not ready yet, force it
-            if let keymapVM = keymapViewModel {
-                setupHUDPanel(with: keymapVM)
-                if let panel = floatingPanel {
-                    panel.makeKeyAndOrderFront(nil)
-                    isHUDModeEnabled = true
-                }
+            setupHUDPanel(with: keymapViewModel)
+            if let panel = floatingPanel {
+                panel.makeKeyAndOrderFront(nil)
+                isHUDModeEnabled = true
             }
         }
     }
