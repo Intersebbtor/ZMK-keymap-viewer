@@ -20,6 +20,8 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
 cp .build/release/ZMKKeymapViewer "${APP_BUNDLE}/Contents/MacOS/"
+# Regenerate with: swift scripts/make-app-icon.swift
+cp assets/AppIcon.icns "${APP_BUNDLE}/Contents/Resources/"
 
 # Create Info.plist
 cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
@@ -37,6 +39,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <string>${VERSION}</string>
     <key>CFBundleShortVersionString</key>
     <string>${VERSION}</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleExecutable</key>
     <string>ZMKKeymapViewer</string>
     <key>CFBundlePackageType</key>
