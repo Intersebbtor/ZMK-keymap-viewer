@@ -148,6 +148,7 @@ class AppState: ObservableObject {
     }
 
     private func handleLiveLayer(_ index: Int) {
+        print("[LiveLayer] Active layer: \(index)")
         keymapViewModel?.applyLiveLayer(index, follow: followLiveLayer)
         // Wake a faded HUD; it fades again after the usual timeout
         if followLiveLayer, floatingPanel?.isVisible == true {

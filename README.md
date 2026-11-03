@@ -16,6 +16,7 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 - 🔄 **Layer switching** — Instantly switch between all your layers
 - ⌨️ **Auto-detect layout** — Sweep, Corne, Sofle, Lily58, and more
 - 👁️ [**HUD Mode**](#️-hud-mode) — Transparent floating overlay (toggle with `Cmd+Shift+K`)
+- 📡 [**Live layer**](#-live-layer) — Follows the layer you're on, over USB or Bluetooth
 - 📝 [**Alias support**](#-alias-comments) — Add `/* =€ */` comments to show custom labels
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
@@ -38,7 +39,7 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 
 1. Click the ⌨️ icon in your menu bar
 2. Paste the path to your `.keymap` file and click **Load**
-3. Click layer tabs to switch views
+3. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
 4. Press `Cmd+Shift+K` to toggle HUD mode
 
 ---
@@ -51,6 +52,48 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 - **Auto-fades** after inactivity, wakes on hover
 - **Resizable & draggable** — position it anywhere
 - Customize opacity and timeout in Settings
+
+---
+
+## 📡 Live Layer
+
+With two small firmware modules, the app shows the layer you are currently on: the menu and the HUD switch along, the HUD wakes up on every layer change, and the menu bar shows the layer name. Works over USB and Bluetooth, no extra macOS permission needed.
+
+Clicking a layer tab still works; it holds until your next layer change on the keyboard. Both behaviors can be turned off in Settings → Live Layer.
+
+**Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
+
+1. Add the modules to `config/west.yml`:
+
+   ```yaml
+   manifest:
+     remotes:
+       - name: zzeneg
+         url-base: https://github.com/zzeneg
+       - name: srwi
+         url-base: https://github.com/srwi
+     projects:
+       - name: zmk-raw-hid
+         remote: zzeneg
+         revision: main
+       - name: zmk-keypeek-layer-notifier
+         remote: srwi
+         revision: master
+   ```
+
+2. Add the `raw_hid_adapter` shield and ZMK Studio to the central half in `build.yaml` (for splits only the central half needs it):
+
+   ```yaml
+   include:
+     - board: nice_nano_v2
+       shield: cradio_left raw_hid_adapter
+       snippet: studio-rpc-usb-uart
+       cmake-args: -DCONFIG_ZMK_STUDIO=y
+   ```
+
+3. Flash the central half, then **remove the keyboard in System Settings → Bluetooth and pair it again**. macOS caches the keyboard's services and only sees the new Raw HID interface after re-pairing.
+
+> The live layer is the layer *number*. The names come from your `.keymap` file, so keep the file in sync if you reorder or add layers with ZMK Studio.
 
 ---
 
