@@ -49,20 +49,27 @@ enum ActiveLayerResolver {
     }
 }
 
-enum MenuBarSymbol {
-    static let defaultName = "keyboard"
-    /// SF Symbols has numbered squares for 0...50
-    private static let numberedRange = 0...50
+enum MenuBarSymbol: Equatable {
+    /// SF Symbol "keyboard"
+    case keyboard
+    /// Split keyboard with the layer number between the halves (SplitKeyboardIcon)
+    case splitKeyboard(layer: Int)
+    /// SF Symbol "N.square.fill"
+    case numberedSquare(layer: Int)
 
-    /// The live layer number, including 0 for the base layer, so the icon
-    /// doesn't switch shape on every layer change. The keyboard icon only
-    /// without a connected keyboard or beyond the numbered symbols.
-    /// Always one fixed-width symbol, so the menu bar item never changes size.
-    static func name(liveIndex: Int?, showLayer: Bool) -> String {
-        guard showLayer, let index = liveIndex, numberedRange.contains(index) else {
-            return defaultName
-        }
-        return "\(index).square.fill"
+    /// The split keyboard icon covers the common layers; it keeps one width,
+    /// so the menu bar item doesn't jump between them
+    static let splitKeyboardLayers = 0...6
+    /// SF Symbols has numbered squares up to 50
+    private static let numberedSquareLayers = 0...50
+
+    /// The live layer as a split keyboard, including 0 for the base layer.
+    /// The plain keyboard without a connected keyboard or beyond the numbered squares.
+    static func forLayer(_ liveIndex: Int?, showLayer: Bool) -> MenuBarSymbol {
+        guard showLayer, let index = liveIndex else { return .keyboard }
+        if splitKeyboardLayers.contains(index) { return .splitKeyboard(layer: index) }
+        if numberedSquareLayers.contains(index) { return .numberedSquare(layer: index) }
+        return .keyboard
     }
 }
 

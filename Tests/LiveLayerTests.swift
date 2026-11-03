@@ -110,25 +110,37 @@ class LiveLayerTests: XCTestCase {
 
     // MARK: - Menu Bar Symbol
 
-    func testMenuBarShowsZeroOnBaseLayer() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 0, showLayer: true), "0.square.fill")
+    func testMenuBarShowsSplitKeyboardOnBaseLayer() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(0, showLayer: true), .splitKeyboard(layer: 0))
     }
 
-    func testMenuBarShowsLayerNumber() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 3, showLayer: true), "3.square.fill")
+    func testMenuBarShowsSplitKeyboardUpToLayerSix() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: true), .splitKeyboard(layer: 3))
+        XCTAssertEqual(MenuBarSymbol.forLayer(6, showLayer: true), .splitKeyboard(layer: 6))
+    }
+
+    func testMenuBarShowsNumberedSquareAboveLayerSix() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(7, showLayer: true), .numberedSquare(layer: 7))
+        XCTAssertEqual(MenuBarSymbol.forLayer(50, showLayer: true), .numberedSquare(layer: 50))
     }
 
     func testMenuBarShowsKeyboardWithoutLiveLayer() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: nil, showLayer: true), "keyboard")
+        XCTAssertEqual(MenuBarSymbol.forLayer(nil, showLayer: true), .keyboard)
     }
 
     func testMenuBarShowsKeyboardWhenDisabled() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 3, showLayer: false), "keyboard")
+        XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: false), .keyboard)
     }
 
-    func testMenuBarShowsKeyboardBeyondNumberedSymbols() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 50, showLayer: true), "50.square.fill")
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 51, showLayer: true), "keyboard")
+    func testMenuBarShowsKeyboardBeyondNumberedSquares() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(51, showLayer: true), .keyboard)
+    }
+
+    func testSplitKeyboardIconIsTemplate() {
+        let image = SplitKeyboardIcon.image(layer: 2)
+        XCTAssertTrue(image.isTemplate)
+        XCTAssertEqual(image.size, SplitKeyboardIcon.size)
+        XCTAssertTrue(SplitKeyboardIcon.image(layer: 2) === image, "cached per layer")
     }
 
     // MARK: - Layer Selection

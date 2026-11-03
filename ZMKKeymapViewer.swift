@@ -41,10 +41,14 @@ struct MenuBarIcon: View {
     @ObservedObject var viewModel: KeymapViewModel
 
     var body: some View {
-        Image(systemName: MenuBarSymbol.name(
-            liveIndex: viewModel.layerSelection.liveIndex,
-            showLayer: appState.showLayerInMenuBar
-        ))
+        switch MenuBarSymbol.forLayer(viewModel.layerSelection.liveIndex, showLayer: appState.showLayerInMenuBar) {
+        case .keyboard:
+            Image(systemName: "keyboard")
+        case let .splitKeyboard(layer):
+            Image(nsImage: SplitKeyboardIcon.image(layer: layer))
+        case let .numberedSquare(layer):
+            Image(systemName: "\(layer).square.fill")
+        }
     }
 }
 

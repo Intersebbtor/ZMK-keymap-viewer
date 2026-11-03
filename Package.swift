@@ -27,7 +27,8 @@ let package = Package(
                 "PDFExporter.swift",
                 "LiveLayer.swift",
                 "LiveLayerMonitor.swift",
-                "WindowControls.swift"
+                "WindowControls.swift",
+                "SplitKeyboardIcon.swift"
             ]
         ),
         .testTarget(
