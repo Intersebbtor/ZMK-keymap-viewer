@@ -52,9 +52,11 @@ enum ActiveLayerResolver {
 enum MenuBarSymbol {
     static let defaultName = "keyboard"
     /// SF Symbols has numbered squares for 0...50
-    private static let numberedRange = 1...50
+    private static let numberedRange = 0...50
 
-    /// The keyboard icon on the base layer, the layer number on any other.
+    /// The live layer number, including 0 for the base layer, so the icon
+    /// doesn't switch shape on every layer change. The keyboard icon only
+    /// without a connected keyboard or beyond the numbered symbols.
     /// Always one fixed-width symbol, so the menu bar item never changes size.
     static func name(liveIndex: Int?, showLayer: Bool) -> String {
         guard showLayer, let index = liveIndex, numberedRange.contains(index) else {

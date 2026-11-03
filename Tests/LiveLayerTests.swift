@@ -110,8 +110,8 @@ class LiveLayerTests: XCTestCase {
 
     // MARK: - Menu Bar Symbol
 
-    func testMenuBarShowsKeyboardOnBaseLayer() {
-        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 0, showLayer: true), "keyboard")
+    func testMenuBarShowsZeroOnBaseLayer() {
+        XCTAssertEqual(MenuBarSymbol.name(liveIndex: 0, showLayer: true), "0.square.fill")
     }
 
     func testMenuBarShowsLayerNumber() {

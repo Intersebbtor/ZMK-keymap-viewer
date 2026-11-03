@@ -34,7 +34,7 @@ struct ZMKKeymapViewerApp: App {
     }
 }
 
-/// Keyboard icon, or the live layer number when not on the base layer.
+/// The live layer number (0 on the base layer), or a keyboard icon without one.
 /// Always a single fixed-width Image, so the status item keeps its size.
 struct MenuBarIcon: View {
     @ObservedObject var appState: AppState

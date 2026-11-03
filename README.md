@@ -68,7 +68,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 With two small firmware modules, the app knows what happens on your keyboard:
 
-- **Active layer:** The menu and the HUD switch to the layer you are on, and the menu bar icon shows its number (a plain keyboard on the base layer).
+- **Active layer:** The menu and the HUD switch to the layer you are on, and the menu bar icon shows its number (0 on the base layer).
 - **Held keys:** Keys light up in the HUD while you hold them, so you see at a glance which key you hit.
 - **No flicker:** The HUD wakes on every key press, not only on layer changes, and doesn't fade while a key is held.
 
@@ -146,7 +146,3 @@ Ideas and PRs welcome! Some things on the radar:
 ## 📄 License
 
 MIT © Intersebbtor
-
----
-
-*Built with SwiftUI + AppKit, 100% vibe coded with GitHub Copilot. From the community, for the community.* ✨
