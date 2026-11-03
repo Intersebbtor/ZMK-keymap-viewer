@@ -145,21 +145,22 @@ enum HIDUsage {
         default: base = String(format: "0x%06X", encoded & 0xFFFFFF)
         }
 
-        var remaining = modifiers
-        // Shift plus a key is usually written as the shifted symbol (EXCL, not LS(N1))
-        if remaining & 0x02 != 0, page == 0x07, let shifted = shiftedSymbols[id] {
-            base = shifted
-            remaining &= ~0x02
+        // Shift alone plus a key is written as the shifted symbol (EXCL, not
+        // LS(N1)). With other modifiers it is a shortcut: ⇧⌘4, not ⌘$.
+        if modifiers == 0x02 || modifiers == 0x20, page == 0x07, let shifted = shiftedSymbols[id] {
+            return shifted
         }
-        for (bit, wrapper) in modifierWrappers where remaining & bit != 0 {
+        // Nested so the label reads in the macOS order ⌃⌥⇧⌘
+        for (bit, wrapper) in modifierWrappers.reversed() where modifiers & bit != 0 {
             base = "\(wrapper)(\(base))"
         }
         return base
     }
 
+    /// Outermost first
     private static let modifierWrappers: [(UInt8, String)] = [
-        (0x01, "LC"), (0x02, "LS"), (0x04, "LA"), (0x08, "LG"),
-        (0x10, "RC"), (0x20, "RS"), (0x40, "RA"), (0x80, "RG"),
+        (0x01, "LC"), (0x10, "RC"), (0x04, "LA"), (0x40, "RA"),
+        (0x02, "LS"), (0x20, "RS"), (0x08, "LG"), (0x80, "RG"),
     ]
 
     private static let shiftedSymbols: [UInt32: String] = [
@@ -196,6 +197,7 @@ enum HIDUsage {
             0x51: "DOWN", 0x52: "UP", 0x53: "KP_NUM", 0x54: "KP_SLASH", 0x55: "KP_MULTIPLY",
             0x56: "KP_MINUS", 0x57: "KP_PLUS", 0x58: "KP_ENTER", 0x62: "KP_N0", 0x63: "KP_DOT",
             0x64: "NUBS", 0x65: "K_APP", 0x67: "KP_EQUAL",
+            0x7F: "K_MUTE", 0x80: "K_VOLUME_UP", 0x81: "K_VOLUME_DOWN",
             0xE0: "LCTRL", 0xE1: "LSHFT", 0xE2: "LALT", 0xE3: "LGUI",
             0xE4: "RCTRL", 0xE5: "RSHFT", 0xE6: "RALT", 0xE7: "RGUI",
         ]

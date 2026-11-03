@@ -403,10 +403,15 @@ struct ContentView: View {
             .font(.caption)
             .foregroundColor(.secondary)
         case .locked:
-            Label("Press &studio_unlock to read \(device)", systemImage: "lock")
-                .font(.caption)
-                .foregroundColor(.orange)
-                .help("ZMK Studio is locked. Once unlocked, the keymap loads from the keyboard.")
+            Button {
+                appState.refreshKeyboardKeymap()
+            } label: {
+                Label("Press &studio_unlock to read \(device)", systemImage: "lock")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+            .buttonStyle(.plain)
+            .help("ZMK Studio is locked. Once unlocked, the keymap loads from the keyboard. Click to check again.")
         case .failed:
             Button {
                 appState.refreshKeyboardKeymap()

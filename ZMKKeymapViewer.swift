@@ -179,6 +179,7 @@ class AppState: ObservableObject {
             case let .layerState(defaultLayers, activeLayers):
                 let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
                 self.handleLiveLayer(layer)
+                self.recheckLockState()
             case let .studioChunk(payload):
                 MainActor.assumeIsolated { self.studioClient?.receive(payload) }
             case let .keyEvent(position, pressed):
@@ -226,6 +227,19 @@ class AppState: ObservableObject {
                 print("[Studio] Reading the keymap failed: \(error)")
                 self.keyboardKeymapStatus = .failed
             }
+        }
+    }
+
+    /// The unlock notification doesn't always reach the app, so a locked
+    /// keyboard is asked again when its layer changes: &studio_unlock sits
+    /// on some layer, and leaving it is a layer change too
+    private func recheckLockState() {
+        guard keyboardKeymapStatus == .locked else { return }
+        Task { @MainActor [weak self] in
+            guard let self = self, let client = self.studioClient,
+                  (try? await client.lockState()) == .unlocked else { return }
+            print("[Studio] Keyboard was unlocked")
+            self.refreshKeyboardKeymap()
         }
     }
 

@@ -170,7 +170,9 @@ class StudioTests: XCTestCase {
 
         XCTAssertEqual(code(kp, 0x07_0014), "&kp Q")
         XCTAssertEqual(code(kp, 0x0207_001E), "&kp EXCL", "shift + 1 is written as the symbol")
-        XCTAssertEqual(code(kp, 0x0A07_0021), "&kp LG(DLLR)")
+        XCTAssertEqual(code(kp, 0x0A07_0021), "&kp LS(LG(N4))", "shift with other modifiers is a shortcut")
+        XCTAssertEqual(code(kp, 0x0D07_0006), "&kp LC(LA(LG(C)))", "modifiers in the macOS order ⌃⌥⇧⌘")
+        XCTAssertEqual(code(kp, 0x07_0081), "&kp K_VOLUME_DOWN")
         XCTAssertEqual(code(kp, 0x0C_00E9), "&kp C_VOL_UP")
         XCTAssertEqual(code(mt, 0x07_00E1, 0x07_001D), "&mt LSHFT Z")
         XCTAssertEqual(code(lt, 2, 0x07_002C), "&lt 2 SPACE")
@@ -250,6 +252,57 @@ class StudioTests: XCTestCase {
         let keymap = try XCTUnwrap(StudioKeymapConverter.keymap(from: snapshot, fallbackLayerNames: ["Base"]))
 
         XCTAssertEqual(keymap.layers.map(\.name), ["Base", "Layer 1"])
+    }
+
+    // MARK: - Recorded from a real keyboard
+
+    /// Decodes the recorded responses in the order the client asked for them
+    private func recordedSweepSnapshot() throws -> StudioSnapshot {
+        var name = ""
+        var layers: [StudioLayer] = []
+        var layout: StudioPhysicalLayout?
+        var behaviors: [UInt32: StudioBehavior] = [:]
+        for line in StudioFixtures.sweepSnapshot.split(separator: "\n") {
+            guard case let .requestResponse(_, result) = try StudioResponse.decode(bytes(String(line))) else { continue }
+            switch result {
+            case let .deviceInfo(deviceName): name = deviceName
+            case let .keymap(recorded): layers = recorded
+            case let .physicalLayouts(active, layouts): layout = layouts[active]
+            case let .behavior(behavior): behaviors[behavior.id] = behavior
+            default: break
+            }
+        }
+        return StudioSnapshot(deviceName: name, layers: layers, layout: layout, behaviors: behaviors)
+    }
+
+    func testRealSweepSnapshot() throws {
+        let keymap = try XCTUnwrap(StudioKeymapConverter.keymap(from: try recordedSweepSnapshot()))
+
+        XCTAssertEqual(keymap.layout.name, "br00m")
+        XCTAssertEqual(keymap.layout.keysPerRow, [10, 10, 10, 4])
+        XCTAssertTrue(keymap.layout.isSplit)
+        XCTAssertEqual(keymap.layers.map(\.name), ["Base", "Num,Arrow", "Sym,Nav,CTRL", "Magnet,Arc", "BT Control"])
+        XCTAssertTrue(keymap.layers.allSatisfy { $0.bindings.count == 34 })
+    }
+
+    func testRealSweepLabelsMatchTheKeymapFile() throws {
+        let layers = try XCTUnwrap(StudioKeymapConverter.keymap(from: try recordedSweepSnapshot())).layers
+
+        func label(_ layer: Int, _ position: Int) -> String { layers[layer].bindings[position].displayText }
+        func fileLabel(_ code: String) -> String { KeymapParser.parseBindings(from: code)[0].displayText }
+
+        // Custom hold-taps come back by their label, LONG_MT for &long_MT
+        XCTAssertEqual(label(0, 0), fileLabel("&long_MT RIGHT_CONTROL Q"))
+        XCTAssertEqual(label(0, 33), fileLabel("&short_LT 2 TAB"))
+        XCTAssertEqual(label(0, 31), fileLabel("&lt 1 BACKSPACE"))
+        XCTAssertEqual(label(1, 21), "VOL-")
+        XCTAssertEqual(label(1, 22), "VOL+")
+        XCTAssertEqual(label(1, 23), fileLabel("&kp LS(LG(NUMBER_4))"), "a shortcut, not ⌘+$")
+        XCTAssertEqual(label(2, 0), "!")
+        XCTAssertEqual(label(3, 5), fileLabel("&kp LC(LA(LEFT))"), "modifiers in the macOS order")
+        XCTAssertEqual(label(4, 9), fileLabel("&studio_unlock"))
+        XCTAssertEqual(label(4, 15), fileLabel("&bt BT_SEL 0"))
+        XCTAssertEqual(label(1, 24), "⌃+⌥+⇧+⌘+1")
     }
 }
 
