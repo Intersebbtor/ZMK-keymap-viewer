@@ -4,7 +4,7 @@ A lightweight macOS menu bar app that displays your ZMK keymap bindings in a vis
 
 With two small firmware modules it follows your keyboard live: it shows the layer you are on and lights up the keys you press, in a floating HUD that stays out of your way.
 
-<img width="751" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
+<img width="746" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
@@ -54,7 +54,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 ## 👁️ HUD Mode
 
-<img width="700" alt="HUD Mode" src="assets/hud_screenshot.png" />
+<img width="700" alt="HUD Mode while holding the Sym layer key" src="assets/hud_screenshot.png" />
 
 - **Always-on-top** floating overlay
 - **Auto-fades** after inactivity, wakes on hover, on key presses and on layer changes
@@ -73,6 +73,8 @@ With two small firmware modules, the app knows what happens on your keyboard:
 - **No flicker:** The HUD wakes on every key press, not only on layer changes, and doesn't fade while a key is held.
 
 Works over USB and Bluetooth, no extra macOS permission needed. Settings → Live Layer shows whether the keyboard is connected and which layer it is on.
+
+<img width="700" alt="Settings with the Live Layer section" src="assets/settings_screenshot.png" />
 
 Clicking a layer tab still works; it holds until your next layer change on the keyboard. Following the keyboard and the menu bar number can be turned off in Settings → Live Layer.
 

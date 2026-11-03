@@ -463,7 +463,7 @@ struct ContentView: View {
     }
     
     private func loadFromPathText() {
-        let path = pathText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let path = (pathText.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
         guard !path.isEmpty else { return }
         guard path.hasSuffix(".keymap") else { return }
         guard FileManager.default.fileExists(atPath: path) else { return }
@@ -755,7 +755,8 @@ struct ContentView: View {
     }
     
     private func loadKeymap(from path: String) {
-        pathText = path
+        // Show ~ instead of the home folder: shorter, and keeps the user name out of screenshots
+        pathText = (path as NSString).abbreviatingWithTildeInPath
         viewModel.loadKeymap(from: path)
         appState.addRecentKeymap(path)
         // The view model resets the displayed layer when a different file loads
