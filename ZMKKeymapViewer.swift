@@ -140,9 +140,19 @@ class AppState: ObservableObject {
             }
         }
         liveLayerMonitor.onPacket = { [weak self] packet in
-            guard case let .layerState(defaultLayers, activeLayers) = packet else { return }
-            let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
-            self?.handleLiveLayer(layer)
+            guard let self = self else { return }
+            switch packet {
+            case let .layerState(defaultLayers, activeLayers):
+                let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
+                self.handleLiveLayer(layer)
+            case let .keyEvent(position, pressed):
+                self.keymapViewModel.setKey(position: position, pressed: pressed)
+                // Every key press keeps the HUD awake, not only layer changes,
+                // so it doesn't light up seemingly at random while typing
+                if pressed {
+                    self.wakeHUD()
+                }
+            }
         }
         liveLayerMonitor.start()
     }
@@ -150,7 +160,11 @@ class AppState: ObservableObject {
     private func handleLiveLayer(_ index: Int) {
         print("[LiveLayer] Active layer: \(index)")
         keymapViewModel.applyLiveLayer(index, follow: followLiveLayer)
-        // Wake a faded HUD; it fades again after the usual timeout
+        wakeHUD()
+    }
+
+    /// Wake a faded HUD; it fades again after the usual timeout
+    private func wakeHUD() {
         if followLiveLayer, floatingPanel?.isVisible == true {
             resetInactivity()
         }

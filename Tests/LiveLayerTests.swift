@@ -58,6 +58,56 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(ActiveLayerResolver.highestLayer(activeLayers: 0x8000_0001, defaultLayers: 0x1), 31)
     }
 
+    // MARK: - Key Positions
+
+    func testKeyPositionIsIndexInSourceOrder() {
+        let bindings = KeymapParser.parseBindings(from: """
+        &kp Q &kp W &kp E
+        &kp A &kp S
+        """)
+        let layer = KeymapLayer(name: "Base", bindings: bindings, rowCount: 2, columnCount: 3)
+
+        XCTAssertEqual(layer.position(of: bindings[0]), 0)
+        XCTAssertEqual(layer.position(of: bindings[3]), 3)
+        XCTAssertEqual(bindings[3].row, 1)
+    }
+
+    func testPressedKeysAreTrackedAndClearedOnDisconnect() {
+        let viewModel = KeymapViewModel()
+        viewModel.setKey(position: 3, pressed: true)
+        viewModel.setKey(position: 7, pressed: true)
+        viewModel.setKey(position: 3, pressed: false)
+        XCTAssertEqual(viewModel.pressedPositions, [7])
+
+        viewModel.clearLiveLayer()
+        XCTAssertTrue(viewModel.pressedPositions.isEmpty)
+    }
+
+    // MARK: - Window Resizing
+
+    private let frame = NSRect(x: 100, y: 100, width: 400, height: 200)
+    private let minSize = NSSize(width: 280, height: 140)
+
+    func testResizeRightAndTopKeepOrigin() {
+        let result = ResizeEdges([.top, .right]).resize(frame, dx: 50, dy: 30, minSize: minSize)
+        XCTAssertEqual(result, NSRect(x: 100, y: 100, width: 450, height: 230))
+    }
+
+    func testResizeLeftAndBottomKeepOppositeEdges() {
+        let result = ResizeEdges([.bottom, .left]).resize(frame, dx: -50, dy: -30, minSize: minSize)
+        XCTAssertEqual(result, NSRect(x: 50, y: 70, width: 450, height: 230))
+    }
+
+    func testResizeSingleEdgeLeavesOtherAxis() {
+        let result = ResizeEdges.left.resize(frame, dx: 20, dy: 99, minSize: minSize)
+        XCTAssertEqual(result, NSRect(x: 120, y: 100, width: 380, height: 200))
+    }
+
+    func testResizeRespectsMinSize() {
+        let result = ResizeEdges([.bottom, .left]).resize(frame, dx: 500, dy: 500, minSize: minSize)
+        XCTAssertEqual(result, NSRect(x: 220, y: 160, width: 280, height: 140))
+    }
+
     // MARK: - Menu Bar Symbol
 
     func testMenuBarShowsKeyboardOnBaseLayer() {

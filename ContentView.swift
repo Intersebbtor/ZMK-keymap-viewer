@@ -24,7 +24,9 @@ struct VisualEffectView: NSViewRepresentable {
 struct KeyboardGridView: View {
     let layer: KeymapLayer
     let layout: KeyboardLayout
-    
+    /// Key positions currently held on the keyboard (live layer feature)
+    var pressedPositions: Set<Int> = []
+
     private var keyWidth: CGFloat {
         layout.keysPerRow.first.map { $0 > 10 ? 48 : 54 } ?? 54
     }
@@ -69,7 +71,7 @@ struct KeyboardGridView: View {
                     HStack(spacing: keySpacing) {
                         ForEach(0..<halfCount, id: \.self) { colIndex in
                             if let binding = bindings[safe: colIndex] {
-                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                     .frame(width: keyWidth, height: keyHeight)
                             }
                         }
@@ -83,7 +85,7 @@ struct KeyboardGridView: View {
                     HStack(spacing: keySpacing) {
                         ForEach(halfCount..<keysInRow, id: \.self) { colIndex in
                             if let binding = bindings[safe: colIndex] {
-                                KeyView(binding: binding, isThumbKey: isThumbRow)
+                                KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                     .frame(width: keyWidth, height: keyHeight)
                             }
                         }
@@ -96,7 +98,7 @@ struct KeyboardGridView: View {
                 HStack(spacing: keySpacing) {
                     ForEach(0..<keysInRow, id: \.self) { colIndex in
                         if let binding = bindings[safe: colIndex] {
-                            KeyView(binding: binding, isThumbKey: isThumbRow)
+                            KeyView(binding: binding, isThumbKey: isThumbRow, isPressed: isPressed(binding))
                                 .frame(width: keyWidth, height: keyHeight)
                         }
                     }
@@ -126,6 +128,11 @@ struct KeyboardGridView: View {
     
     private func getBindingsForRow(_ row: Int) -> [KeyBinding] {
         return layer.bindings.filter { $0.row == row }.sorted { $0.column < $1.column }
+    }
+
+    private func isPressed(_ binding: KeyBinding) -> Bool {
+        guard !pressedPositions.isEmpty, let position = layer.position(of: binding) else { return false }
+        return pressedPositions.contains(position)
     }
 }
 
@@ -421,7 +428,8 @@ struct ContentView: View {
                 
                 KeyboardGridView(
                     layer: layer,
-                    layout: layout
+                    layout: layout,
+                    pressedPositions: viewModel.pressedPositions
                 )
                 .padding(20)
             }
@@ -756,7 +764,9 @@ struct ContentView: View {
 struct KeyView: View {
     let binding: KeyBinding
     let isThumbKey: Bool
-    
+    /// Held down on the keyboard right now
+    var isPressed: Bool = false
+
     @State private var isHovered = false
     @State private var showTooltip = false
     
@@ -786,10 +796,15 @@ struct KeyView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(keyBackgroundColor)
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
-            
+
+            if isPressed {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.accentColor.opacity(0.55))
+            }
+
             // Key border - highlight aliased keys with a subtle accent
             RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(borderColor, lineWidth: isHovered ? 2 : 1)
+                .strokeBorder(borderColor, lineWidth: isHovered || isPressed ? 2 : 1)
             
             // Key label
             Text(displayLabel)
@@ -800,6 +815,8 @@ struct KeyView: View {
                 .minimumScaleFactor(0.5)
                 .padding(4)
         }
+        .scaleEffect(isPressed ? 0.94 : 1)
+        .animation(.easeOut(duration: 0.08), value: isPressed)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
@@ -827,7 +844,7 @@ struct KeyView: View {
     }
     
     private var borderColor: Color {
-        if isHovered {
+        if isHovered || isPressed {
             return Color.accentColor
         }
         return Color.primary.opacity(0.1)

@@ -26,7 +26,8 @@ let package = Package(
                 "GlobalShortcutManager.swift",
                 "PDFExporter.swift",
                 "LiveLayer.swift",
-                "LiveLayerMonitor.swift"
+                "LiveLayerMonitor.swift",
+                "WindowControls.swift"
             ]
         ),
         .testTarget(

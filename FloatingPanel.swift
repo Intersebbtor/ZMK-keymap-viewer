@@ -5,7 +5,10 @@ class FloatingPanel: NSPanel {
     init(view: AnyView, contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.nonactivatingPanel, .resizable, .titled, .fullSizeContentView],
+            // No .resizable: the native border only worked at the bottom corners
+            // of this transparent window. HUDView adds its own resize zones on all
+            // edges and corners (WindowResizeEdges).
+            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -24,7 +27,8 @@ class FloatingPanel: NSPanel {
         self.isOpaque = false
         self.hasShadow = true
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        
+        self.minSize = NSSize(width: 280, height: 140)
+
         // Configuration for automatic position saving
         self.setFrameAutosaveName("ZMKKeymapHUD")
         

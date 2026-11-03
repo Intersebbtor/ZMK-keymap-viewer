@@ -11,6 +11,9 @@ class KeymapViewModel: ObservableObject {
 
     var displayedLayerIndex: Int { layerSelection.displayedIndex }
 
+    /// Key positions currently held on the keyboard
+    @Published private(set) var pressedPositions: Set<Int> = []
+
     /// Name of the keyboard's active layer, or "Layer N" if the keymap file does not have it
     var liveLayerName: String? {
         guard let index = layerSelection.liveIndex else { return nil }
@@ -99,6 +102,16 @@ class KeymapViewModel: ObservableObject {
 
     func clearLiveLayer() {
         layerSelection.clearLive()
+        // Releases sent while disconnected never arrive
+        pressedPositions = []
+    }
+
+    func setKey(position: Int, pressed: Bool) {
+        if pressed {
+            pressedPositions.insert(position)
+        } else {
+            pressedPositions.remove(position)
+        }
     }
 
     func reloadCurrentKeymap() {

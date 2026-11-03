@@ -8,11 +8,13 @@ struct HUDView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Discrete drag bar at the top
+            // Discrete drag bar at the top, with a larger invisible grab area
             Capsule()
                 .fill(Color.secondary.opacity(0.2))
                 .frame(width: 30, height: 4)
-                .padding(.top, 8)
+                .frame(width: 120, height: 16)
+                .background(WindowDragArea())
+                .padding(.top, 2)
             
             if let keymap = viewModel.keymap {
                 // Minimalist and "airy" layer selector
@@ -60,7 +62,7 @@ struct HUDView: View {
                         
                         let scale = calculateScale(for: keymap.layout, in: geo.size)
                         
-                        KeyboardGridView(layer: layer, layout: keymap.layout)
+                        KeyboardGridView(layer: layer, layout: keymap.layout, pressedPositions: viewModel.pressedPositions)
                             .frame(width: naturalWidth, height: naturalHeight)
                             .scaleEffect(scale, anchor: .center)
                             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -73,14 +75,6 @@ struct HUDView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            // Subtle resize handle
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundColor(.secondary.opacity(0.3))
-                .rotationEffect(.degrees(-45))
-                .padding(6)
         }
         .background(
             ZStack {
@@ -100,6 +94,8 @@ struct HUDView: View {
         .opacity(appState.isHUDInactive ? 0.15 : appState.hudOpacity)
         .scaleEffect(appState.isHUDInactive ? 0.98 : 1.0)
         .animation(.easeInOut(duration: 0.8), value: appState.isHUDInactive)
+        // Outside the fade so the zones stay grabbable while the HUD is faded
+        .overlay(WindowResizeEdges())
     }
     
     private func calculateScale(for layout: KeyboardLayout, in size: CGSize) -> CGFloat {
