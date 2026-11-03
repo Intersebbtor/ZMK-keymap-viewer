@@ -4,6 +4,10 @@ set -e
 cd "$(dirname "$0")/.."
 PROJECT_DIR=$(pwd)
 
+# Single source of truth for the version: appVersion in ZMKKeymapViewer.swift
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"/\1/p' ZMKKeymapViewer.swift)
+echo "🏷  Version ${VERSION}"
+
 echo "🔨 Building release..."
 swift build -c release
 
@@ -18,7 +22,7 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 cp .build/release/ZMKKeymapViewer "${APP_BUNDLE}/Contents/MacOS/"
 
 # Create Info.plist
-cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
+cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -30,9 +34,9 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.sebietter.zmk-keymap-viewer</string>
     <key>CFBundleVersion</key>
-    <string>1.1.0</string>
+    <string>${VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.0</string>
+    <string>${VERSION}</string>
     <key>CFBundleExecutable</key>
     <string>ZMKKeymapViewer</string>
     <key>CFBundlePackageType</key>
@@ -53,7 +57,8 @@ codesign --force --deep --sign - "$APP_BUNDLE"
 
 echo "💿 Creating DMG..."
 DMG_NAME="ZMK-Keymap-Viewer"
-DMG_PATH="${PROJECT_DIR}/${DMG_NAME}.dmg"
+# The in-app updater downloads ZMK-Keymap-Viewer-v<version>.dmg from the release
+DMG_PATH="${PROJECT_DIR}/${DMG_NAME}-v${VERSION}.dmg"
 rm -f "$DMG_PATH"
 
 # Create temporary directory for DMG contents
