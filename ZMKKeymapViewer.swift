@@ -148,8 +148,9 @@ class AppState: ObservableObject {
             case let .keyEvent(position, pressed):
                 self.keymapViewModel.setKey(position: position, pressed: pressed)
                 // Every key press keeps the HUD awake, not only layer changes,
-                // so it doesn't light up seemingly at random while typing
-                if pressed {
+                // so it doesn't light up seemingly at random while typing.
+                // The timeout starts once the last held key is released.
+                if pressed || self.keymapViewModel.pressedPositions.isEmpty {
                     self.wakeHUD()
                 }
             }
@@ -250,6 +251,9 @@ class AppState: ObservableObject {
             self.activityTimer?.invalidate()
             
             guard self.hudTimeout > 0 else { return }
+            // Don't fade while a key is held, e.g. a layer key: the user is
+            // probably looking for a key on that layer
+            guard self.keymapViewModel.pressedPositions.isEmpty else { return }
             
             self.activityTimer = Timer.scheduledTimer(withTimeInterval: self.hudTimeout, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 1.0)) {

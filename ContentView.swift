@@ -151,8 +151,12 @@ struct ContentView: View {
             
             ZStack {
                 if appState.isSettingsVisible {
-                    settingsView
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    // Scrollable, so tall settings never push the header and
+                    // footer out of the popover (which also broke clicks)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        settingsView
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else if viewModel.keymap != nil {
                     if appState.isHUDModeEnabled {
                         hudActiveView
@@ -257,6 +261,11 @@ struct ContentView: View {
                 print("[ContentView] No recent keymaps found")
             }
         }
+        // Reopening the popover starts on the keymap, not on the settings
+        .background(WindowHideObserver {
+            print("[ContentView] Popover hidden")
+            appState.isSettingsVisible = false
+        })
     }
     
     private func calculateScale(for layout: KeyboardLayout) -> CGFloat {

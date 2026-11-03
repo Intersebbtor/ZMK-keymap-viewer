@@ -170,3 +170,52 @@ private struct ResizeZone: NSViewRepresentable {
         }
     }
 }
+
+// MARK: - Hide Observer
+
+/// Calls `onHide` whenever the hosting window leaves the screen. MenuBarExtra
+/// keeps its content alive between openings, so onDisappear never fires.
+struct WindowHideObserver: NSViewRepresentable {
+    let onHide: () -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        ObserverView(onHide: onHide)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class ObserverView: NSView {
+        private let onHide: () -> Void
+        private var observer: NSObjectProtocol?
+
+        init(onHide: @escaping () -> Void) {
+            self.onHide = onHide
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        deinit { stopObserving() }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopObserving()
+            guard let window = window else { return }
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification,
+                object: window,
+                queue: .main
+            ) { [weak self, weak window] _ in
+                guard let window = window, !window.occlusionState.contains(.visible) else { return }
+                self?.onHide()
+            }
+        }
+
+        private func stopObserving() {
+            if let observer = observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            observer = nil
+        }
+    }
+}
