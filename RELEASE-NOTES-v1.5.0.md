@@ -12,6 +12,7 @@
 - The build script takes the version from the app and names the DMG the way the in-app updater expects.
 
 ## Commits Since v1.4.0
+- fix: keep held layers visible and make settings closable
 - feat: highlight held keys and make the HUD movable and resizable
 - fix: create AppState lazily so the menu stays clickable
 - fix: show the live layer as a fixed-width menu bar symbol
