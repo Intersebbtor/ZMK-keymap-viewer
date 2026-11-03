@@ -280,8 +280,9 @@ class KeymapParserTests: XCTestCase {
         };
         """
         
-        let result = KeymapParser.parse(from: keymapData)
-        
+        // The keyboard name comes from the file name/content, not the key count
+        let result = KeymapParser.parse(from: keymapData, filePath: "/config/cradio.keymap")
+
         XCTAssertEqual(result?.layout.totalKeys, 34)
         XCTAssertEqual(result?.layout.name, "Sweep/Cradio")
     }
@@ -304,8 +305,8 @@ class KeymapParserTests: XCTestCase {
         };
         """
         
-        let result = KeymapParser.parse(from: keymapData)
-        
+        let result = KeymapParser.parse(from: keymapData, filePath: "/config/corne.keymap")
+
         XCTAssertEqual(result?.layout.totalKeys, 42)
         XCTAssertEqual(result?.layout.name, "Corne")
     }

@@ -3,23 +3,24 @@ import XCTest
 
 /// Tests for KeyboardLayout detection and configuration
 class KeyboardLayoutTests: XCTestCase {
-    
-    // MARK: - Test Predefined Layouts
-    
+
+    // MARK: - Test Layout Creation
+
     func testSweepLayoutProperties() {
-        let sweep = KeyboardLayout.sweep
-        
+        let sweep = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: "Sweep/Cradio")
+
         XCTAssertEqual(sweep.totalKeys, 34)
         XCTAssertEqual(sweep.keysPerRow, [10, 10, 10, 4])
         XCTAssertEqual(sweep.rowCount, 4)
         XCTAssertTrue(sweep.hasThumbCluster)
         XCTAssertEqual(sweep.thumbKeysCount, 4)
         XCTAssertEqual(sweep.name, "Sweep/Cradio")
+        XCTAssertTrue(sweep.isSplit)
     }
-    
+
     func testCorneLayoutProperties() {
-        let corne = KeyboardLayout.corne
-        
+        let corne = KeyboardLayout.create(keyCount: 42, keysPerRow: [12, 12, 12, 6], detectedName: "Corne")
+
         XCTAssertEqual(corne.totalKeys, 42)
         XCTAssertEqual(corne.keysPerRow, [12, 12, 12, 6])
         XCTAssertEqual(corne.rowCount, 4)
@@ -27,62 +28,82 @@ class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(corne.thumbKeysCount, 6)
         XCTAssertEqual(corne.name, "Corne")
     }
-    
-    // MARK: - Test Layout Detection
-    
-    func testDetectSweepLayout() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 34, keysPerRow: [10, 10, 10, 4])
-        
-        XCTAssertEqual(layout.totalKeys, 34)
-        XCTAssertEqual(layout.name, "Sweep/Cradio")
-    }
-    
-    func testDetectCorneLayout() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 42, keysPerRow: [12, 12, 12, 6])
-        
-        XCTAssertEqual(layout.totalKeys, 42)
-        XCTAssertEqual(layout.name, "Corne")
-    }
-    
-    func testDetectCustomLayout() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 50, keysPerRow: [12, 12, 12, 14])
-        
+
+    func testCreateWithoutNameUsesCustomName() {
+        let layout = KeyboardLayout.create(keyCount: 50, keysPerRow: [12, 12, 12, 14], detectedName: nil)
+
         XCTAssertEqual(layout.totalKeys, 50)
         XCTAssertEqual(layout.name, "Custom (50 keys)")
         XCTAssertEqual(layout.rowCount, 4)
     }
-    
-    func testDetectLayoutWithFewerRows() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 30, keysPerRow: [10, 10, 10])
-        
+
+    func testCreateDefaultsToSplit() {
+        let layout = KeyboardLayout.create(keyCount: 30, keysPerRow: [10, 10, 10], detectedName: nil)
+        XCTAssertTrue(layout.isSplit)
+    }
+
+    func testCreateNonSplit() {
+        let layout = KeyboardLayout.create(keyCount: 48, keysPerRow: [12, 12, 12, 12], detectedName: "Planck", isSplit: false)
+        XCTAssertFalse(layout.isSplit)
+    }
+
+    func testCreateWithFewerRows() {
+        let layout = KeyboardLayout.create(keyCount: 30, keysPerRow: [10, 10, 10], detectedName: nil)
+
         XCTAssertEqual(layout.totalKeys, 30)
         XCTAssertEqual(layout.rowCount, 3)
     }
-    
+
     func testThumbClusterDetection() {
-        let layoutWithThumb = KeyboardLayout.detect(fromKeyCount: 34, keysPerRow: [10, 10, 10, 4])
+        let layoutWithThumb = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: nil)
         XCTAssertTrue(layoutWithThumb.hasThumbCluster)
-        
-        let layoutWithoutThumb = KeyboardLayout.detect(fromKeyCount: 30, keysPerRow: [10, 10, 10])
+
+        let layoutWithoutThumb = KeyboardLayout.create(keyCount: 30, keysPerRow: [10, 10, 10], detectedName: nil)
         XCTAssertFalse(layoutWithoutThumb.hasThumbCluster)
+        XCTAssertEqual(layoutWithoutThumb.thumbKeysCount, 0)
     }
-    
+
+    // MARK: - Test Keyboard Detection
+
+    func testDetectKeyboardFromFilename() {
+        let info = KeyboardLayout.detectKeyboardInfo(from: "", filePath: "/tmp/config/cradio.keymap")
+
+        XCTAssertEqual(info?.name, "Sweep/Cradio")
+        XCTAssertEqual(info?.isSplit, true)
+    }
+
+    func testDetectNonSplitKeyboard() {
+        let info = KeyboardLayout.detectKeyboardInfo(from: "", filePath: "/tmp/config/planck.keymap")
+
+        XCTAssertEqual(info?.name, "Planck")
+        XCTAssertEqual(info?.isSplit, false)
+    }
+
+    func testDetectGo60Signature() {
+        let info = KeyboardLayout.detectKeyboardInfo(from: "/* GO60 LAYOUT EDITOR */")
+        XCTAssertEqual(info?.name, "Go60")
+    }
+
+    func testDetectUnknownKeyboard() {
+        XCTAssertNil(KeyboardLayout.detectKeyboardInfo(from: "nothing to see here", filePath: "/tmp/my.keymap"))
+    }
+
     // MARK: - Test Layout Equality
-    
+
     func testLayoutEquality() {
-        let layout1 = KeyboardLayout.sweep
-        let layout2 = KeyboardLayout.sweep
-        
+        let layout1 = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: "Sweep/Cradio")
+        let layout2 = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: "Sweep/Cradio")
+
         XCTAssertEqual(layout1, layout2)
     }
-    
+
     func testLayoutInequality() {
-        let sweep = KeyboardLayout.sweep
-        let corne = KeyboardLayout.corne
-        
+        let sweep = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: "Sweep/Cradio")
+        let corne = KeyboardLayout.create(keyCount: 42, keysPerRow: [12, 12, 12, 6], detectedName: "Corne")
+
         XCTAssertNotEqual(sweep, corne)
     }
-    
+
     func testCustomLayoutsWithSamePropertiesAreEqual() {
         let layout1 = KeyboardLayout(
             totalKeys: 50,
@@ -90,109 +111,54 @@ class KeyboardLayoutTests: XCTestCase {
             rowCount: 4,
             hasThumbCluster: true,
             thumbKeysCount: 14,
-            name: "Custom Layout"
+            name: "Custom Layout",
+            isSplit: true
         )
-        
+
         let layout2 = KeyboardLayout(
             totalKeys: 50,
             keysPerRow: [12, 12, 12, 14],
             rowCount: 4,
             hasThumbCluster: true,
             thumbKeysCount: 14,
-            name: "Custom Layout"
+            name: "Custom Layout",
+            isSplit: true
         )
-        
+
         XCTAssertEqual(layout1, layout2)
     }
-    
+
     // MARK: - Test Thumb Cluster Detection
-    
-    func testThumbKeysCounting() {
-        let layout = KeyboardLayout(
-            totalKeys: 38,
-            keysPerRow: [10, 10, 10, 8],
-            rowCount: 4,
-            hasThumbCluster: true,
-            thumbKeysCount: 8,
-            name: "Extended Sweep"
-        )
-        
-        XCTAssertEqual(layout.thumbKeysCount, 8)
-    }
-    
+
     func testSmallThumbCluster() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 32, keysPerRow: [10, 10, 10, 2])
-        
+        let layout = KeyboardLayout.create(keyCount: 32, keysPerRow: [10, 10, 10, 2], detectedName: nil)
+
         XCTAssertTrue(layout.hasThumbCluster)
         XCTAssertEqual(layout.thumbKeysCount, 2)
     }
-    
-    func testLargeThumbCluster() {
-        let layout = KeyboardLayout(
-            totalKeys: 52,
-            keysPerRow: [12, 12, 12, 16],
-            rowCount: 4,
-            hasThumbCluster: true,
-            thumbKeysCount: 16,
-            name: "Custom Large"
-        )
-        
-        XCTAssertEqual(layout.thumbKeysCount, 16)
-    }
-    
+
     // MARK: - Test Row Configuration
-    
+
     func testKeysPerRowArray() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 34, keysPerRow: [10, 10, 10, 4])
-        
-        XCTAssertEqual(layout.keysPerRow.count, 4)
-        XCTAssertEqual(layout.keysPerRow[0], 10)
-        XCTAssertEqual(layout.keysPerRow[1], 10)
-        XCTAssertEqual(layout.keysPerRow[2], 10)
-        XCTAssertEqual(layout.keysPerRow[3], 4)
+        let layout = KeyboardLayout.create(keyCount: 34, keysPerRow: [10, 10, 10, 4], detectedName: nil)
+
+        XCTAssertEqual(layout.keysPerRow, [10, 10, 10, 4])
     }
-    
+
     func testAsymmetricalRows() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 44, keysPerRow: [12, 12, 12, 8])
-        
+        let layout = KeyboardLayout.create(keyCount: 44, keysPerRow: [12, 12, 12, 8], detectedName: nil)
+
         XCTAssertEqual(layout.rowCount, 4)
-        let totalFromRows = layout.keysPerRow.reduce(0, +)
-        XCTAssertEqual(totalFromRows, 44)
+        XCTAssertEqual(layout.keysPerRow.reduce(0, +), 44)
     }
-    
+
     // MARK: - Test Edge Cases
-    
-    func testSingleKeyLayout() {
-        let layout = KeyboardLayout(
-            totalKeys: 1,
-            keysPerRow: [1],
-            rowCount: 1,
-            hasThumbCluster: false,
-            thumbKeysCount: 0,
-            name: "Single Key"
-        )
-        
-        XCTAssertEqual(layout.totalKeys, 1)
-        XCTAssertEqual(layout.rowCount, 1)
-    }
-    
-    func testLargeLayout() {
-        let layout = KeyboardLayout(
-            totalKeys: 100,
-            keysPerRow: Array(repeating: 10, count: 10),
-            rowCount: 10,
-            hasThumbCluster: false,
-            thumbKeysCount: 0,
-            name: "Large Layout"
-        )
-        
-        XCTAssertEqual(layout.totalKeys, 100)
-        XCTAssertEqual(layout.rowCount, 10)
-    }
-    
-    func testDetectWithZeroKeys() {
-        let layout = KeyboardLayout.detect(fromKeyCount: 0, keysPerRow: [])
-        
+
+    func testCreateWithZeroKeys() {
+        let layout = KeyboardLayout.create(keyCount: 0, keysPerRow: [], detectedName: nil)
+
         XCTAssertEqual(layout.totalKeys, 0)
+        XCTAssertEqual(layout.rowCount, 0)
+        XCTAssertFalse(layout.hasThumbCluster)
     }
 }

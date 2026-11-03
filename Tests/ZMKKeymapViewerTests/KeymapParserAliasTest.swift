@@ -37,24 +37,24 @@ final class KeymapParserAliasTest: XCTestCase {
         XCTAssertNil(bindings[2].alias)
     }
     
-    // MARK: - End-of-Line Aliases // =alias (still supported)
-    
-    func testEndOfLineAlias() {
+    // MARK: - End-of-Line // =alias (no longer supported, plain comment)
+
+    func testEndOfLineAliasSyntaxIsIgnored() {
         let input = "&kp A  // =Letter A"
         let bindings = KeymapParser.parseBindings(from: input)
-        
+
         XCTAssertEqual(bindings.count, 1)
-        XCTAssertEqual(bindings[0].alias, "Letter A")
+        XCTAssertNil(bindings[0].alias)
     }
-    
-    func testEndOfLineAliasAppliesOnlyToLastBinding() {
+
+    func testEndOfLineAliasSyntaxIsIgnoredForAllBindings() {
         let input = "&kp A  &kp B  &kp C  // =Charlie"
         let bindings = KeymapParser.parseBindings(from: input)
-        
+
         XCTAssertEqual(bindings.count, 3)
         XCTAssertNil(bindings[0].alias)
         XCTAssertNil(bindings[1].alias)
-        XCTAssertEqual(bindings[2].alias, "Charlie")
+        XCTAssertNil(bindings[2].alias)
     }
     
     // MARK: - Regular Comments (No Alias)
@@ -95,10 +95,10 @@ final class KeymapParserAliasTest: XCTestCase {
         
         XCTAssertEqual(bindings.count, 3)
         XCTAssertEqual(bindings[0].alias, "Alpha")
-        XCTAssertEqual(bindings[1].alias, "Bravo")
+        XCTAssertNil(bindings[1].alias)
         XCTAssertNil(bindings[2].alias)
     }
-    
+
     // MARK: - Edge Cases
     
     func testEmptyAliasIgnored() {
