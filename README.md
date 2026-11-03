@@ -21,6 +21,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 - 📡 [**Live layer**](#-live-layer) — Follows the layer you're on, over USB or Bluetooth
 - ✨ [**Key highlighting**](#-live-layer) — Keys light up in the HUD while you hold them
 - 🔢 **Layer in the menu bar** — The menu bar icon shows the active layer number
+- ⌨️ [**Keymap from the keyboard**](#keymap-straight-from-the-keyboard) — Reads the keymap over ZMK Studio, no file needed
 - 📝 [**Alias support**](#-alias-comments) — Add `/* =€ */` comments to show custom labels
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
@@ -110,7 +111,11 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 3. Flash the central half, then **remove the keyboard in System Settings → Bluetooth and pair it again**. macOS caches the keyboard's services and only sees the new Raw HID interface after re-pairing.
 
-> The live layer is the layer *number*. The names come from your `.keymap` file, so keep the file in sync if you reorder or add layers with ZMK Studio.
+### Keymap straight from the keyboard
+
+With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is still useful: it adds your [alias comments](#-alias-comments) and layer names, and it is the fallback for keyboards without Studio.
+
+ZMK Studio stays locked until you press `&studio_unlock`. The popover then says *Press &studio_unlock*, and the keymap loads as soon as you press it. The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
 
 ---
 

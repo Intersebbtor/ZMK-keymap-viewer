@@ -71,6 +71,16 @@ class AppState: ObservableObject {
         didSet { if followLiveLayer { syncToLiveLayer() } }
     }
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
+    @AppStorage("readKeymapFromKeyboard") var readKeymapFromKeyboard = true {
+        didSet {
+            if readKeymapFromKeyboard {
+                refreshKeyboardKeymap()
+            } else {
+                keymapViewModel.applyKeyboardSnapshot(nil)
+                keyboardKeymapStatus = .idle
+            }
+        }
+    }
 
     // Export Settings
     @AppStorage("exportDirectory") var exportDirectory: String = "Desktop"
@@ -94,6 +104,18 @@ class AppState: ObservableObject {
     // Live layer from the keyboard (zmk-keypeek-layer-notifier firmware module)
     private let liveLayerMonitor = LiveLayerMonitor()
     @Published private(set) var liveDeviceName: String?
+
+    // Keymap read from the keyboard over ZMK Studio RPC (same firmware module)
+    enum KeyboardKeymapStatus: Equatable {
+        case idle
+        case loading
+        /// Studio is locked: the keymap loads after &studio_unlock
+        case locked
+        case loaded
+        case failed
+    }
+    @Published private(set) var keyboardKeymapStatus = KeyboardKeymapStatus.idle
+    private var studioClient: StudioClient?
 
     init() {
         AppState.instance = self
@@ -138,8 +160,17 @@ class AppState: ObservableObject {
                 // The firmware only reports changes, so assume the base layer
                 // until the first one arrives
                 self.handleLiveLayer(0)
+                // Give a freshly connected keyboard a moment before the first request
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.refreshKeyboardKeymap()
+                }
             } else {
                 self.keymapViewModel.clearLiveLayer()
+                MainActor.assumeIsolated { self.studioClient?.cancel() }
+                // The keymap read last stays shown until the next one arrives
+                if self.keyboardKeymapStatus != .loaded {
+                    self.keyboardKeymapStatus = .idle
+                }
             }
         }
         liveLayerMonitor.onPacket = { [weak self] packet in
@@ -148,6 +179,8 @@ class AppState: ObservableObject {
             case let .layerState(defaultLayers, activeLayers):
                 let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
                 self.handleLiveLayer(layer)
+            case let .studioChunk(payload):
+                MainActor.assumeIsolated { self.studioClient?.receive(payload) }
             case let .keyEvent(position, pressed):
                 self.keymapViewModel.setKey(position: position, pressed: pressed)
                 // Every key press keeps the HUD awake, not only layer changes,
@@ -158,7 +191,42 @@ class AppState: ObservableObject {
                 }
             }
         }
+        MainActor.assumeIsolated {
+            let client = StudioClient { [weak self] report in
+                self?.liveLayerMonitor.send(report) ?? false
+            }
+            client.onLockStateChanged = { [weak self] state in
+                if state == .unlocked {
+                    self?.refreshKeyboardKeymap()
+                }
+            }
+            studioClient = client
+        }
         liveLayerMonitor.start()
+    }
+
+    /// Reads the keymap from the connected keyboard (ZMK Studio RPC). The
+    /// file stays the fallback and provides aliases.
+    func refreshKeyboardKeymap() {
+        guard readKeymapFromKeyboard, liveLayerMonitor.connectedDeviceName != nil,
+              keyboardKeymapStatus != .loading else { return }
+        keyboardKeymapStatus = .loading
+        Task { @MainActor [weak self] in
+            guard let self = self, let client = self.studioClient else { return }
+            do {
+                let snapshot = try await client.fetchSnapshot()
+                print("[Studio] Read \(snapshot.layers.count) layers from \(snapshot.deviceName)")
+                guard self.readKeymapFromKeyboard else { return }
+                self.keymapViewModel.applyKeyboardSnapshot(snapshot)
+                self.keyboardKeymapStatus = .loaded
+            } catch StudioError.locked {
+                print("[Studio] Keyboard is locked, waiting for &studio_unlock")
+                self.keyboardKeymapStatus = .locked
+            } catch {
+                print("[Studio] Reading the keymap failed: \(error)")
+                self.keyboardKeymapStatus = .failed
+            }
+        }
     }
 
     private func handleLiveLayer(_ index: Int) {

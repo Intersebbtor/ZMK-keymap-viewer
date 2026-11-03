@@ -362,6 +362,8 @@ struct ContentView: View {
             
             // Status row
             HStack(spacing: 8) {
+                keyboardSourceView
+
                 if let filePath = viewModel.currentFilePath {
                     Button {
                         NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
@@ -388,6 +390,47 @@ struct ContentView: View {
         .padding()
     }
     
+    /// Where the shown keymap comes from when the keyboard is involved
+    @ViewBuilder
+    private var keyboardSourceView: some View {
+        let device = appState.liveDeviceName ?? viewModel.keyboardKeymapName ?? "Keyboard"
+        switch appState.keyboardKeymapStatus {
+        case .loading:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text("Reading \(device)…")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+        case .locked:
+            Label("Press &studio_unlock to read \(device)", systemImage: "lock")
+                .font(.caption)
+                .foregroundColor(.orange)
+                .help("ZMK Studio is locked. Once unlocked, the keymap loads from the keyboard.")
+        case .failed:
+            Button {
+                appState.refreshKeyboardKeymap()
+            } label: {
+                Label("\(device) didn't send its keymap", systemImage: "exclamationmark.triangle")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .help("Retry. Reading the keymap needs ZMK Studio in the firmware.")
+        case .idle, .loaded:
+            if let name = viewModel.keyboardKeymapName {
+                Button {
+                    appState.refreshKeyboardKeymap()
+                } label: {
+                    Label("From \(name)", systemImage: "keyboard")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("The keymap is read from the keyboard. Click to read it again.")
+            }
+        }
+    }
+
     private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
 
     private var layerTabsView: some View {
@@ -566,8 +609,10 @@ struct ContentView: View {
                         .font(.caption2)
                     Toggle("Show layer number in menu bar", isOn: $appState.showLayerInMenuBar)
                         .font(.caption2)
+                    Toggle("Read the keymap from the keyboard (ZMK Studio)", isOn: $appState.readKeymapFromKeyboard)
+                        .font(.caption2)
 
-                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules.")
+                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules. Reading the keymap also needs ZMK Studio; the file then only adds aliases.")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }

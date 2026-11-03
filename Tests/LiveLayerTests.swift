@@ -29,8 +29,11 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(LayerPacket.decode(report([0xF1, 0x00, 14, 0])), .keyEvent(position: 14, pressed: false))
     }
 
-    func testIgnoresStudioRpcAndUnknownPackets() {
-        XCTAssertNil(LayerPacket.decode(report([0xF2, 0x10, 0xAB])))
+    func testDecodesStudioChunk() {
+        XCTAssertEqual(LayerPacket.decode(report([0xF2, 0x03, 0xAB, 0x08, 0x01])), .studioChunk([0xAB, 0x08, 0x01]))
+    }
+
+    func testIgnoresUnknownPackets() {
         XCTAssertNil(LayerPacket.decode(report([0x00])))
     }
 

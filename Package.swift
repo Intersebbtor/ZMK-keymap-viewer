@@ -28,7 +28,10 @@ let package = Package(
                 "LiveLayer.swift",
                 "LiveLayerMonitor.swift",
                 "WindowControls.swift",
-                "SplitKeyboardIcon.swift"
+                "SplitKeyboardIcon.swift",
+                "StudioProtocol.swift",
+                "StudioClient.swift",
+                "StudioKeymap.swift"
             ]
         ),
         .testTarget(

@@ -2,8 +2,11 @@ import Foundation
 import Combine
 
 class KeymapViewModel: ObservableObject {
-    @Published var keymap: Keymap?
+    /// The displayed keymap: read from the keyboard when available, else the file
+    @Published private(set) var keymap: Keymap?
     @Published var currentFilePath: String?
+    /// Name of the keyboard the displayed keymap was read from, nil when it comes from the file
+    @Published private(set) var keyboardKeymapName: String?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     /// Displayed and live layer, shared by the menu and the HUD
@@ -19,6 +22,9 @@ class KeymapViewModel: ObservableObject {
         guard let index = layerSelection.liveIndex else { return nil }
         return keymap?.layers[safe: index]?.name ?? "Layer \(index)"
     }
+
+    private var fileKeymap: Keymap?
+    private var keyboardSnapshot: StudioSnapshot?
 
     private var fileMonitor: FileMonitor?
     private var cancellables = Set<AnyCancellable>()
@@ -56,12 +62,9 @@ class KeymapViewModel: ObservableObject {
                 if let parsed = KeymapParser.parse(from: data, filePath: filePath) {
                     DispatchQueue.main.async {
                         // A reload of the same file keeps the selected layer
-                        if filePath == self.currentFilePath {
-                            self.layerSelection.clamp(layerCount: parsed.layers.count)
-                        } else {
-                            self.layerSelection.reset(layerCount: parsed.layers.count)
-                        }
-                        self.keymap = parsed
+                        let isNewFile = filePath != self.currentFilePath
+                        self.fileKeymap = parsed
+                        self.updateDisplayedKeymap(resetSelection: isNewFile && self.keyboardSnapshot == nil)
                         self.currentFilePath = filePath
                         self.isLoading = false
                         
@@ -90,6 +93,50 @@ class KeymapViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Keymap from the keyboard
+
+    /// Shows the keymap read from the keyboard, with aliases and missing
+    /// layer names from the file. nil goes back to the file.
+    func applyKeyboardSnapshot(_ snapshot: StudioSnapshot?) {
+        let switchesSource = (snapshot == nil) != (keyboardSnapshot == nil)
+        keyboardSnapshot = snapshot
+        updateDisplayedKeymap(resetSelection: switchesSource)
+    }
+
+    private func updateDisplayedKeymap(resetSelection: Bool) {
+        var shown = fileKeymap
+        var keyboardName: String?
+        if let snapshot = keyboardSnapshot,
+           let fromKeyboard = StudioKeymapConverter.keymap(
+               from: snapshot,
+               aliases: aliases(matching: snapshot),
+               fallbackLayerNames: fileKeymap?.layers.map(\.name) ?? []
+           ) {
+            shown = fromKeyboard
+            keyboardName = snapshot.deviceName
+        }
+
+        let layerCount = shown?.layers.count ?? 0
+        if resetSelection {
+            layerSelection.reset(layerCount: layerCount)
+        } else {
+            layerSelection.clamp(layerCount: layerCount)
+        }
+        keymap = shown
+        keyboardKeymapName = keyboardName
+    }
+
+    /// Aliases of the file's layers whose key count matches the keyboard's
+    private func aliases(matching snapshot: StudioSnapshot) -> [[String?]] {
+        guard let file = fileKeymap else { return [] }
+        return snapshot.layers.indices.map { index in
+            guard let layer = file.layers[safe: index], layer.bindings.count == snapshot.layers[index].bindings.count else {
+                return []
+            }
+            return layer.bindings.map(\.alias)
+        }
+    }
+
     // MARK: - Layer selection
 
     func selectLayer(_ index: Int) {
