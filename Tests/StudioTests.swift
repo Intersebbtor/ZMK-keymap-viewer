@@ -299,6 +299,15 @@ class StudioTests: XCTestCase {
         XCTAssertTrue(keymap.layers.allSatisfy { $0.bindings.count == 34 })
     }
 
+    /// The app keeps the last snapshot to show it while the keyboard is locked
+    func testSnapshotSurvivesSaving() throws {
+        let snapshot = try recordedSweepSnapshot()
+
+        let saved = try JSONDecoder().decode(StudioSnapshot.self, from: JSONEncoder().encode(snapshot))
+
+        XCTAssertEqual(saved, snapshot)
+    }
+
     func testRealSweepLabelsMatchTheKeymapFile() throws {
         let layers = try XCTUnwrap(StudioKeymapConverter.keymap(from: try recordedSweepSnapshot())).layers
 

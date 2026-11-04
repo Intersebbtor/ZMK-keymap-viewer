@@ -43,8 +43,6 @@ struct MenuBarIcon: View {
 
     var body: some View {
         switch MenuBarSymbol.forLayer(viewModel.layerSelection.liveIndex, showLayer: appState.showLayerInMenuBar) {
-        case .keyboard:
-            Image(systemName: "keyboard")
         case let .splitKeyboard(layer):
             Image(nsImage: SplitKeyboardIcon.image(layer: layer))
         }
@@ -74,6 +72,7 @@ class AppState: ObservableObject {
     @AppStorage("readKeymapFromKeyboard") var readKeymapFromKeyboard = true {
         didSet {
             if readKeymapFromKeyboard {
+                showSavedKeyboardKeymap()
                 refreshKeyboardKeymap()
             } else {
                 keymapViewModel.applyKeyboardSnapshot(nil)
@@ -112,6 +111,9 @@ class AppState: ObservableObject {
         /// Studio is locked: the keymap loads after &studio_unlock
         case locked
         case loaded
+        /// Shows the keymap read earlier from this keyboard. It is locked or
+        /// not connected, which is no reason to ask for &studio_unlock again.
+        case saved
         case failed
     }
     @Published private(set) var keyboardKeymapStatus = KeyboardKeymapStatus.idle
@@ -170,9 +172,7 @@ class AppState: ObservableObject {
                 MainActor.assumeIsolated { self.studioClient?.cancel() }
                 self.unlockListener?.cancel()
                 // The keymap read last stays shown until the next one arrives
-                if self.keyboardKeymapStatus != .loaded {
-                    self.keyboardKeymapStatus = .idle
-                }
+                self.keyboardKeymapStatus = self.keymapViewModel.keyboardKeymapName != nil ? .saved : .idle
             }
         }
         liveLayerMonitor.onPacket = { [weak self] packet in
@@ -204,6 +204,7 @@ class AppState: ObservableObject {
             }
             studioClient = client
         }
+        showSavedKeyboardKeymap()
         liveLayerMonitor.start()
     }
 
@@ -221,15 +222,43 @@ class AppState: ObservableObject {
                 guard self.readKeymapFromKeyboard else { return }
                 self.keymapViewModel.applyKeyboardSnapshot(snapshot)
                 self.keyboardKeymapStatus = .loaded
-            } catch StudioError.locked {
-                print("[Studio] Keyboard is locked, waiting for &studio_unlock")
-                self.keyboardKeymapStatus = .locked
-                self.listenForUnlock()
+                Self.saveKeyboardSnapshot(snapshot)
             } catch {
-                print("[Studio] Reading the keymap failed: \(error)")
-                self.keyboardKeymapStatus = .failed
+                // The keymap read earlier from this keyboard is still right:
+                // only Studio can change it, and Studio needs the unlock too
+                if self.keymapViewModel.keyboardKeymapName == self.liveLayerMonitor.connectedDeviceName {
+                    print("[Studio] Showing the saved keymap (\(error))")
+                    self.keyboardKeymapStatus = .saved
+                } else if case StudioError.locked = error {
+                    print("[Studio] Keyboard is locked, waiting for &studio_unlock")
+                    self.keyboardKeymapStatus = .locked
+                    self.listenForUnlock()
+                } else {
+                    print("[Studio] Reading the keymap failed: \(error)")
+                    self.keyboardKeymapStatus = .failed
+                }
             }
         }
+    }
+
+    // MARK: - Saved keymap
+
+    private static let savedSnapshotKey = "keyboardSnapshot"
+
+    private static func saveKeyboardSnapshot(_ snapshot: StudioSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: savedSnapshotKey)
+    }
+
+    /// The keymap read last, right at launch: no waiting for the keyboard,
+    /// and no &studio_unlock after every restart of keyboard or Mac
+    private func showSavedKeyboardKeymap() {
+        guard readKeymapFromKeyboard, keymapViewModel.keyboardKeymapName == nil,
+              let data = UserDefaults.standard.data(forKey: Self.savedSnapshotKey),
+              let snapshot = try? JSONDecoder().decode(StudioSnapshot.self, from: data) else { return }
+        print("[Studio] Showing the saved keymap of \(snapshot.deviceName)")
+        keymapViewModel.applyKeyboardSnapshot(snapshot)
+        keyboardKeymapStatus = .saved
     }
 
     /// The unlock notification doesn't always reach the app, so while the

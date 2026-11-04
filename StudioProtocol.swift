@@ -306,39 +306,39 @@ enum StudioLockState: Equatable {
     case unlocked
 }
 
-struct StudioBinding: Equatable {
+struct StudioBinding: Equatable, Codable {
     let behaviorID: Int32
     let param1: UInt32
     let param2: UInt32
 }
 
-struct StudioLayer: Equatable {
+struct StudioLayer: Equatable, Codable {
     let id: UInt32
     let name: String
     let bindings: [StudioBinding]
 }
 
 /// Position and size in hundredths of a key unit
-struct StudioKeyAttributes: Equatable {
+struct StudioKeyAttributes: Equatable, Codable {
     let width: Int32
     let height: Int32
     let x: Int32
     let y: Int32
 }
 
-struct StudioPhysicalLayout: Equatable {
+struct StudioPhysicalLayout: Equatable, Codable {
     let name: String
     let keys: [StudioKeyAttributes]
 }
 
-enum StudioParameterKind: Equatable {
+enum StudioParameterKind: Equatable, Codable {
     case none
     case hidUsage
     case layer
     case number
 }
 
-struct StudioBehavior: Equatable {
+struct StudioBehavior: Equatable, Codable {
     let id: UInt32
     let displayName: String
     /// Kinds of param1 and param2, from the first parameter set of the metadata

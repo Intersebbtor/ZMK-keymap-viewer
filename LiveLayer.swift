@@ -53,17 +53,16 @@ enum ActiveLayerResolver {
 }
 
 enum MenuBarSymbol: Equatable {
-    /// SF Symbol "keyboard"
-    case keyboard
     /// Split keyboard with the layer number between the halves (SplitKeyboardIcon).
-    /// One width for all single-digit layers, so the menu bar item doesn't jump.
-    case splitKeyboard(layer: Int)
+    /// One width for all single-digit layers and for no number, so the menu
+    /// bar item doesn't jump.
+    case splitKeyboard(layer: Int?)
 
     /// The live layer as a split keyboard, including 0 for the base layer.
-    /// The plain keyboard without a connected keyboard.
+    /// No number while no keyboard is connected (e.g. during a reset) or the
+    /// layer is hidden, so the icon stays the same.
     static func forLayer(_ liveIndex: Int?, showLayer: Bool) -> MenuBarSymbol {
-        guard showLayer, let index = liveIndex else { return .keyboard }
-        return .splitKeyboard(layer: index)
+        .splitKeyboard(layer: showLayer ? liveIndex : nil)
     }
 }
 

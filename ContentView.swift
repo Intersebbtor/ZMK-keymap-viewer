@@ -441,6 +441,17 @@ struct ContentView: View {
             .font(.caption)
             .foregroundColor(.secondary)
             .help("Retry. Reading the keymap needs ZMK Studio in the firmware.")
+        case .saved:
+            if let name = viewModel.keyboardKeymapName {
+                Button {
+                    appState.refreshKeyboardKeymap()
+                } label: {
+                    Label("From \(name) · saved", systemImage: "keyboard")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("Read earlier from \(name). Click to read it again; when the keyboard is locked, press &studio_unlock first.")
+            }
         case .idle, .loaded:
             if let name = viewModel.keyboardKeymapName {
                 Button {
@@ -595,7 +606,7 @@ struct ContentView: View {
                 Button("Try Again") { appState.refreshKeyboardKeymap() }
                 Link("How to set up the firmware", destination: firmwareGuide)
                     .font(.caption)
-            case .idle, .loading, .loaded:
+            case .idle, .loading, .loaded, .saved:
                 Text("Connected to \(device).")
                 waitingRow("Reading the keymap…")
             }

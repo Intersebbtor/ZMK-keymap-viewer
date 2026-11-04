@@ -115,7 +115,7 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is still useful: it adds your [alias comments](#-alias-comments) and layer names, and it is the fallback for keyboards without Studio.
 
-ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks you to press it and listens: the keymap loads by itself as soon as the keyboard is unlocked. The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
+ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks you to press it and listens: the keymap loads by itself as soon as the keyboard is unlocked. The app keeps the keymap it read last, so after that it shows up right away, even when the keyboard restarts locked (*From … · saved*). The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
 
 ---
 

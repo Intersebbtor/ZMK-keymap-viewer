@@ -1,7 +1,8 @@
 import Foundation
 
-/// Everything the viewer needs from the keyboard to show its keymap
-struct StudioSnapshot: Equatable {
+/// Everything the viewer needs from the keyboard to show its keymap. Codable,
+/// so the app can keep the last one and show it while the keyboard is locked.
+struct StudioSnapshot: Equatable, Codable {
     let deviceName: String
     let layers: [StudioLayer]
     /// The active physical layout, nil if the keyboard has none
