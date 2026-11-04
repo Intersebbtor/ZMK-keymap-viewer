@@ -3,7 +3,7 @@ import AppKit
 import Carbon
 import UniformTypeIdentifiers
 
-let appVersion = "1.6.0"
+let appVersion = "1.6.1"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
