@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - VisualEffectView for background blur
 struct VisualEffectView: NSViewRepresentable {
@@ -139,15 +140,20 @@ struct KeyboardGridView: View {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
-    @State private var pathText: String = ""
     @State private var isRecordingShortcut = false
-    
+    @State private var isDropTargeted = false
+
+    /// No keymap yet: the setup guide takes the whole popover
+    private var showsSetup: Bool { viewModel.keymap == nil && !appState.isSettingsVisible }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with file info and layout
-            headerView
-            
-            Divider()
+            if !showsSetup {
+                headerView
+
+                Divider()
+            }
             
             ZStack {
                 if appState.isSettingsVisible {
@@ -168,7 +174,7 @@ struct ContentView: View {
                         }
                     }
                 } else {
-                    emptyStateView
+                    setupView
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -255,10 +261,19 @@ struct ContentView: View {
             // Auto-load most recent keymap
             if let mostRecent = appState.recentKeymaps.first {
                 print("[ContentView] Loading most recent keymap: \(mostRecent)")
-                pathText = mostRecent
                 loadKeymap(from: mostRecent)
             } else {
                 print("[ContentView] No recent keymaps found")
+            }
+        }
+        // A .keymap file dropped anywhere on the popover loads
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: loadDroppedKeymap)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentColor, lineWidth: 3)
+                    .padding(2)
+                    .allowsHitTesting(false)
             }
         }
         // Reopening the popover starts on the keymap, not on the settings
@@ -299,14 +314,21 @@ struct ContentView: View {
             HStack {
                 Text("Keymap File")
                     .font(.subheadline.bold()) // A bit smaller to save space
-                
+
                 Spacer()
+
+                Button {
+                    chooseKeymapFile()
+                } label: {
+                    Label("Choose File…", systemImage: "folder")
+                }
+                .controlSize(.small)
+
                 // Recent keymaps menu
                 if !appState.recentKeymaps.isEmpty {
                     Menu {
                         ForEach(appState.recentKeymaps, id: \.self) { path in
                             Button {
-                                pathText = path
                                 loadKeymap(from: path)
                             } label: {
                                 let filename = URL(fileURLWithPath: path).lastPathComponent
@@ -341,24 +363,21 @@ struct ContentView: View {
                 }
             }
             
-            // Persistent path text field
-            HStack(spacing: 8) {
-                TextField("Path to .keymap file", text: $pathText)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12, design: .monospaced))
-                    .onSubmit {
-                        loadFromPathText()
-                    }
-                
-                Button {
-                    loadFromPathText()
-                } label: {
-                    Label("Load", systemImage: "folder")
+            // The loaded file, ~ instead of the home folder: shorter, and
+            // keeps the user name out of screenshots
+            Group {
+                if let filePath = viewModel.currentFilePath {
+                    Text((filePath as NSString).abbreviatingWithTildeInPath)
+                        .foregroundColor(.primary)
+                } else {
+                    Text("No file. The keymap comes from the keyboard; a file adds alias comments.")
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(pathText.isEmpty)
             }
+            .font(.system(size: 12, design: .monospaced))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             // Status row
             HStack(spacing: 8) {
@@ -493,33 +512,132 @@ struct ContentView: View {
         }
     }
     
-    private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-            
-            Text("No keymap loaded")
+    // MARK: - Setup guide
+
+    /// First start: two ways to a keymap, from the keyboard or from a file
+    private var setupView: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 6) {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
+                Text("Show your keymap")
+                    .font(.title2.bold())
+                Text("Read it straight from your keyboard, or load your .keymap file.")
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(alignment: .top, spacing: 16) {
+                setupCard(title: "From your keyboard", systemImage: "dot.radiowaves.left.and.right") {
+                    keyboardSetupContent
+                }
+                setupCard(title: "From a file", systemImage: "doc.text") {
+                    Text("Load the .keymap file from your zmk-config. Alias comments like /* =€ */ in it show up on the keys.")
+                    Button {
+                        chooseKeymapFile()
+                    } label: {
+                        Label("Choose File…", systemImage: "folder")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Text("or drop it anywhere on this window")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func setupCard<Content: View>(title: String, systemImage: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
                 .font(.headline)
-                .foregroundColor(.secondary)
-            
-            Text("Paste a path above and press Load")
+            content()
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(NSColor.controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.secondary.opacity(0.2)))
+    }
+
+    /// Walks through connecting and unlocking; it moves on by itself
+    @ViewBuilder
+    private var keyboardSetupContent: some View {
+        let device = appState.liveDeviceName ?? "Your keyboard"
+        let firmwareGuide = URL(string: "https://github.com/\(githubRepo)#-live-layer")!
+        if !appState.readKeymapFromKeyboard {
+            Text("Reading the keymap from the keyboard is turned off.")
+            Button("Turn On") { appState.readKeymapFromKeyboard = true }
+        } else if appState.liveDeviceName == nil {
+            Text("Connect your ZMK keyboard over USB or Bluetooth. Its firmware needs ZMK Studio and the layer notifier module.")
+            waitingRow("Waiting for a keyboard…")
+            Link("How to set up the firmware", destination: firmwareGuide)
+                .font(.caption)
+        } else {
+            switch appState.keyboardKeymapStatus {
+            case .locked:
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "lock.fill")
+                        .font(.title2)
+                        .foregroundColor(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(device) is locked")
+                            .bold()
+                        Text("Press **&studio_unlock** on your keyboard. ZMK Studio keeps the keymap locked until then.")
+                    }
+                }
+                waitingRow("Listening for the unlock…")
+            case .failed:
+                Text("\(device) didn't send its keymap. Its firmware might not have ZMK Studio.")
+                Button("Try Again") { appState.refreshKeyboardKeymap() }
+                Link("How to set up the firmware", destination: firmwareGuide)
+                    .font(.caption)
+            case .idle, .loading, .loaded:
+                Text("Connected to \(device).")
+                waitingRow("Reading the keymap…")
+            }
+        }
+    }
+
+    private func waitingRow(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            ProgressView()
+                .controlSize(.small)
+            Text(text)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
-    private func loadFromPathText() {
-        let path = (pathText.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
-        guard !path.isEmpty else { return }
-        guard path.hasSuffix(".keymap") else { return }
-        guard FileManager.default.fileExists(atPath: path) else { return }
-        loadKeymap(from: path)
-        // Keep menu bar window active after loading
-        DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
+
+    // MARK: - Loading files
+
+    private func chooseKeymapFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose your keymap"
+        panel.message = "Usually config/<keyboard>.keymap in your zmk-config"
+        panel.allowedContentTypes = [UTType(filenameExtension: "keymap") ?? .data]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if let current = viewModel.currentFilePath {
+            panel.directoryURL = URL(fileURLWithPath: current).deletingLastPathComponent()
         }
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        loadKeymap(from: url.path)
+    }
+
+    private func loadDroppedKeymap(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            guard let url = url, url.pathExtension == "keymap" else { return }
+            DispatchQueue.main.async {
+                loadKeymap(from: url.path)
+            }
+        }
+        return true
     }
 
     // MARK: - Subviews
@@ -805,8 +923,6 @@ struct ContentView: View {
     }
     
     private func loadKeymap(from path: String) {
-        // Show ~ instead of the home folder: shorter, and keeps the user name out of screenshots
-        pathText = (path as NSString).abbreviatingWithTildeInPath
         viewModel.loadKeymap(from: path)
         appState.addRecentKeymap(path)
         // The view model resets the displayed layer when a different file loads

@@ -54,7 +54,11 @@ final class StudioClient {
     }
 
     func call(_ request: StudioRequest) async throws -> StudioResult {
-        guard pending == nil else { throw StudioError.unexpectedResponse }
+        // One request at a time: wait for the one in flight (it ends with its
+        // response or its timeout)
+        while pending != nil {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
         let id = nextRequestID
         nextRequestID &+= 1
 

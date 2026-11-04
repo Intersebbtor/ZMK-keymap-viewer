@@ -116,6 +116,7 @@ class AppState: ObservableObject {
     }
     @Published private(set) var keyboardKeymapStatus = KeyboardKeymapStatus.idle
     private var studioClient: StudioClient?
+    private var unlockListener: Task<Void, Never>?
 
     init() {
         AppState.instance = self
@@ -167,6 +168,7 @@ class AppState: ObservableObject {
             } else {
                 self.keymapViewModel.clearLiveLayer()
                 MainActor.assumeIsolated { self.studioClient?.cancel() }
+                self.unlockListener?.cancel()
                 // The keymap read last stays shown until the next one arrives
                 if self.keyboardKeymapStatus != .loaded {
                     self.keyboardKeymapStatus = .idle
@@ -179,7 +181,6 @@ class AppState: ObservableObject {
             case let .layerState(defaultLayers, activeLayers):
                 let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
                 self.handleLiveLayer(layer)
-                self.recheckLockState()
             case let .studioChunk(payload):
                 MainActor.assumeIsolated { self.studioClient?.receive(payload) }
             case let .keyEvent(position, pressed):
@@ -223,6 +224,7 @@ class AppState: ObservableObject {
             } catch StudioError.locked {
                 print("[Studio] Keyboard is locked, waiting for &studio_unlock")
                 self.keyboardKeymapStatus = .locked
+                self.listenForUnlock()
             } catch {
                 print("[Studio] Reading the keymap failed: \(error)")
                 self.keyboardKeymapStatus = .failed
@@ -230,16 +232,22 @@ class AppState: ObservableObject {
         }
     }
 
-    /// The unlock notification doesn't always reach the app, so a locked
-    /// keyboard is asked again when its layer changes: &studio_unlock sits
-    /// on some layer, and leaving it is a layer change too
-    private func recheckLockState() {
-        guard keyboardKeymapStatus == .locked else { return }
-        Task { @MainActor [weak self] in
-            guard let self = self, let client = self.studioClient,
-                  (try? await client.lockState()) == .unlocked else { return }
-            print("[Studio] Keyboard was unlocked")
-            self.refreshKeyboardKeymap()
+    /// The unlock notification doesn't always reach the app, so while the
+    /// keyboard is locked it is asked again every 1.5 seconds. The keymap
+    /// loads right after &studio_unlock, without another key press.
+    private func listenForUnlock() {
+        unlockListener?.cancel()
+        unlockListener = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard let self = self, !Task.isCancelled, self.keyboardKeymapStatus == .locked,
+                      self.liveLayerMonitor.connectedDeviceName != nil, let client = self.studioClient else { return }
+                if (try? await client.lockState()) == .unlocked {
+                    print("[Studio] Keyboard was unlocked")
+                    self.refreshKeyboardKeymap()
+                    return
+                }
+            }
         }
     }
 

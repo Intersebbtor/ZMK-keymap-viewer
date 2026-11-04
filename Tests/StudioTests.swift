@@ -155,6 +155,20 @@ class StudioTests: XCTestCase {
         }
     }
 
+    /// The unlock listener and a click on the hint can ask at the same time
+    @MainActor
+    func testConcurrentRequestsWaitForEachOther() async throws {
+        let client = FakeStudioKeyboard.sweep().connectedClient()
+
+        async let first = client.lockState()
+        async let second = client.call(.getDeviceInfo)
+
+        let (state, info) = try await (first, second)
+
+        XCTAssertEqual(state, .unlocked)
+        XCTAssertEqual(info, .deviceInfo(name: "br00m"))
+    }
+
     // MARK: - Converting to the viewer's keymap
 
     func testBindingCodes() {
