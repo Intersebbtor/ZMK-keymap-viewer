@@ -142,6 +142,8 @@ struct ContentView: View {
     @EnvironmentObject var viewModel: KeymapViewModel
     @State private var isRecordingShortcut = false
     @State private var isDropTargeted = false
+    @State private var keyNameText = ""
+    @FocusState private var isKeyNameFocused: Bool
 
     /// No keymap yet, or its last step: the setup guide takes the whole popover
     private var showsSetup: Bool {
@@ -175,6 +177,11 @@ struct ContentView: View {
                         VStack(spacing: 0) {
                             layerTabsView
                             keymapVisualizationView
+                        }
+                        .overlay {
+                            if let binding = appState.keyBeingNamed {
+                                keyNameEditor(for: binding)
+                            }
                         }
                     }
                 } else {
@@ -284,6 +291,7 @@ struct ContentView: View {
         .background(WindowHideObserver {
             print("[ContentView] Popover hidden")
             appState.isSettingsVisible = false
+            appState.keyBeingNamed = nil
         })
     }
     
@@ -706,21 +714,58 @@ struct ContentView: View {
         GuideWay(systemImage: systemImage, title: title, text: text, code: code)
     }
 
+    /// Naming happens inside the popover: a separate dialog would take the
+    /// focus and close it
     private func askForKeyName(_ binding: KeyBinding) {
+        keyNameText = viewModel.keyName(for: binding) ?? binding.alias ?? ""
+        appState.keyBeingNamed = binding
+        DispatchQueue.main.async {
+            isKeyNameFocused = true
+        }
+    }
+
+    private func keyNameEditor(for binding: KeyBinding) -> some View {
         let current = binding.displayText.replacingOccurrences(of: "\n", with: " ")
-        let alert = NSAlert()
-        alert.messageText = "Name this key"
-        alert.informativeText = "Shown instead of \(current) wherever that binding sits. Leave it empty to show \(current) again."
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        field.stringValue = viewModel.keyName(for: binding) ?? binding.alias ?? ""
-        field.placeholderString = "e.g. Screenshot"
-        alert.accessoryView = field
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        alert.window.initialFirstResponder = field
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        viewModel.setKeyName(field.stringValue, for: binding)
+        return ZStack {
+            Color.black.opacity(0.25)
+                .onTapGesture { appState.keyBeingNamed = nil }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Name this key")
+                    .font(.headline)
+                Text("Shown instead of \(current) wherever that binding sits.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField("e.g. Screenshot", text: $keyNameText)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isKeyNameFocused)
+                    .onSubmit { saveKeyName(for: binding) }
+                HStack {
+                    if viewModel.keyName(for: binding) != nil {
+                        Button("Remove Name") {
+                            viewModel.setKeyName(nil, for: binding)
+                            appState.keyBeingNamed = nil
+                        }
+                    }
+                    Spacer()
+                    Button("Cancel") { appState.keyBeingNamed = nil }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save") { saveKeyName(for: binding) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(width: 340)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+        }
+    }
+
+    private func saveKeyName(for binding: KeyBinding) {
+        viewModel.setKeyName(keyNameText, for: binding)
+        appState.keyBeingNamed = nil
     }
 
     // MARK: - Loading files
