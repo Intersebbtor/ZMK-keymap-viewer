@@ -76,6 +76,14 @@ struct HUDView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        // Typing speed in the corner next to the drag bar
+        .overlay(alignment: .topTrailing) {
+            if appState.showWPMInHUD, appState.liveDeviceName != nil {
+                WPMView(wpm: viewModel.wpm, history: viewModel.wpmHistory)
+                    .padding(.top, 10)
+                    .padding(.trailing, 18)
+            }
+        }
         .background(
             ZStack {
                 if appState.hudUseMaterial {
@@ -115,3 +123,45 @@ struct HUDView: View {
         return min(widthScale, heightScale, 2.0)
     }
 }
+
+/// Words per minute with a graph of the last 30 seconds, like the nice!view
+struct WPMView: View {
+    let wpm: Int
+    let history: [Int]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            WPMGraph(values: history)
+                .stroke(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
+                .frame(width: 54, height: 14)
+            Text("\(wpm)")
+                .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                .frame(minWidth: 22, alignment: .trailing)
+            Text("WPM")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundColor(.secondary)
+        }
+        .help("Typing speed: five key presses make a word, averaged over the last five seconds")
+    }
+}
+
+/// A line over the samples, scaled to the highest one (at least 40 WPM, so
+/// slow typing doesn't fill the graph)
+struct WPMGraph: Shape {
+    let values: [Int]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard values.count > 1 else { return path }
+        let top = Double(max(values.max() ?? 0, 40))
+        let step = rect.width / CGFloat(WPMMeter.historyLength - 1)
+        // Right-aligned, so new samples come in on the right
+        let startX = rect.maxX - CGFloat(values.count - 1) * step
+        for (index, value) in values.enumerated() {
+            let point = CGPoint(x: startX + CGFloat(index) * step, y: rect.maxY - CGFloat(Double(value) / top) * rect.height)
+            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        return path
+    }
+}
+

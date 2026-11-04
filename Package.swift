@@ -36,7 +36,8 @@ let package = Package(
                 "FirmwareSetup.swift",
                 "FirmwareEdits.swift",
                 "FirmwareSetupView.swift",
-                "SetupView.swift"
+                "SetupView.swift",
+                "WPMMeter.swift"
             ]
         ),
         .testTarget(

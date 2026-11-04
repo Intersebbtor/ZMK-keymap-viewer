@@ -758,6 +758,8 @@ struct ContentView: View {
                     
                     Toggle("Use Background Blur (Material)", isOn: $appState.hudUseMaterial)
                         .font(.caption2)
+                    Toggle("Show typing speed (WPM) while the keyboard is connected", isOn: $appState.showWPMInHUD)
+                        .font(.caption2)
                 }
                 
                 Divider()
