@@ -2,7 +2,8 @@ import Foundation
 import IOKit.hid
 
 /// Listens for live layer packets from a keyboard running the
-/// zmk-keypeek-layer-notifier firmware module, over USB or Bluetooth.
+/// zmk-keypeek-layer-notifier firmware module, over USB or Bluetooth, and
+/// sends reports back for the ZMK Studio RPC tunnel.
 ///
 /// The Raw HID interface uses a vendor usage page, so opening it does not
 /// need the Input Monitoring permission.
@@ -22,6 +23,8 @@ class LiveLayerMonitor: ObservableObject {
     private var manager: IOHIDManager?
     /// Input report buffers must stay alive as long as the device is open.
     private var reportBuffers: [IOHIDDevice: UnsafeMutablePointer<UInt8>] = [:]
+    /// The device reports are sent to: the one connected last
+    private var activeDevice: IOHIDDevice?
 
     var isRunning: Bool { manager != nil }
 
@@ -78,6 +81,7 @@ class LiveLayerMonitor: ObservableObject {
         IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.reportSize, Self.reportReceived, context)
 
         print("[LiveLayer] Connected: \(name) via \(transport)")
+        activeDevice = device
         connectedDeviceName = name
         onConnectionChange?(true)
     }
@@ -88,10 +92,27 @@ class LiveLayerMonitor: ObservableObject {
         buffer.deallocate()
 
         print("[LiveLayer] Disconnected")
+        if activeDevice == device {
+            activeDevice = reportBuffers.keys.first
+        }
         if reportBuffers.isEmpty {
             connectedDeviceName = nil
             onConnectionChange?(false)
         }
+    }
+
+    /// Sends one output report to the keyboard. Returns false without a
+    /// connected keyboard or when the report could not be sent.
+    @discardableResult
+    func send(_ report: [UInt8]) -> Bool {
+        guard let device = activeDevice else { return false }
+        let result = report.withUnsafeBufferPointer { buffer in
+            IOHIDDeviceSetReport(device, kIOHIDReportTypeOutput, 0, buffer.baseAddress!, buffer.count)
+        }
+        if result != kIOReturnSuccess {
+            print("[LiveLayer] Sending report failed: \(String(format: "0x%08x", result))")
+        }
+        return result == kIOReturnSuccess
     }
 
     // MARK: - IOKit callbacks

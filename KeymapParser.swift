@@ -5,13 +5,13 @@ struct KeyBinding: Identifiable, Equatable {
     let id = UUID()
     let displayText: String   // Human-readable display (e.g., "Q", "CTRL+Q")
     let rawCode: String       // Original keymap code (e.g., "&long_MT RIGHT_CONTROL Q")
-    let alias: String?        // User-defined alias from // =alias comment
+    let name: String?         // Name given with a right-click (Screenshot for ⇧⌘4)
     let row: Int
     let column: Int
     
-    /// Returns alias if present, otherwise displayText
+    /// Returns the name if present, otherwise displayText
     var effectiveDisplayText: String {
-        alias ?? displayText
+        name ?? displayText
     }
     
     static func == (lhs: KeyBinding, rhs: KeyBinding) -> Bool {
@@ -254,42 +254,17 @@ class KeymapParser {
             // Check for C style comment (/* */)
             if i < data.index(data.endIndex, offsetBy: -1) && 
                data[i] == "/" && data[nextI] == "*" {
-                // Check if this is an alias comment /* =... */ - preserve it!
-                let commentStart = i
-                var commentEnd = data.index(after: nextI)
-                var commentContent = ""
-                
-                // Find the end of the comment and extract content
-                while commentEnd < data.index(data.endIndex, offsetBy: -1) {
-                    if data[commentEnd] == "*" && data[data.index(after: commentEnd)] == "/" {
-                        commentEnd = data.index(after: data.index(after: commentEnd))
+                // Skip it but preserve newlines
+                i = data.index(after: nextI)
+                while i < data.index(data.endIndex, offsetBy: -1) {
+                    if data[i] == "*" && data[data.index(after: i)] == "/" {
+                        i = data.index(after: data.index(after: i))
                         break
                     }
-                    commentContent.append(data[commentEnd])
-                    commentEnd = data.index(after: commentEnd)
-                }
-                
-                // Check if it's an alias comment (starts with = after trimming whitespace)
-                let trimmedContent = commentContent.trimmingCharacters(in: .whitespaces)
-                if trimmedContent.hasPrefix("=") {
-                    // Preserve alias comment - append the whole thing
-                    for idx in data.indices[commentStart..<commentEnd] {
-                        result.append(data[idx])
+                    if data[i] == "\n" {
+                        result.append("\n")
                     }
-                    i = commentEnd
-                } else {
-                    // Regular block comment - skip it but preserve newlines
-                    i = data.index(after: nextI)
-                    while i < data.index(data.endIndex, offsetBy: -1) {
-                        if data[i] == "*" && data[data.index(after: i)] == "/" {
-                            i = data.index(after: data.index(after: i))
-                            break
-                        }
-                        if data[i] == "\n" {
-                            result.append("\n")
-                        }
-                        i = data.index(after: i)
-                    }
+                    i = data.index(after: i)
                 }
                 continue
             }
@@ -438,33 +413,12 @@ class KeymapParser {
         return layers
     }
     
-    /// Strip C-style line comments (// ...) from a line, preserving block comments
+    /// Strip C-style line comments (// ...) from a line
     private static func stripLineComment(_ line: String) -> String {
         if let commentRange = line.range(of: "//") {
             return String(line[..<commentRange.lowerBound]).trimmingCharacters(in: .whitespaces)
         }
         return line
-    }
-    
-    /// Extract inline alias from block comment: /* =alias */
-    /// Returns the alias text or nil if not found
-    private static func extractInlineAlias(from token: String) -> (binding: String, alias: String?)? {
-        // Look for pattern: &binding /* =alias */
-        let pattern = #"^(.+?)\s*/\*\s*=\s*(.+?)\s*\*/"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
-            return nil
-        }
-        
-        let nsToken = token as NSString
-        guard let match = regex.firstMatch(in: token, options: [], range: NSRange(location: 0, length: nsToken.length)),
-              match.numberOfRanges >= 3 else {
-            return nil
-        }
-        
-        let binding = nsToken.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
-        let alias = nsToken.substring(with: match.range(at: 2)).trimmingCharacters(in: .whitespaces)
-        
-        return (binding, alias.isEmpty ? nil : alias)
     }
     
     /// Parse the raw bindings content of a layer
@@ -478,31 +432,18 @@ class KeymapParser {
         var currentRow = 0
         
         for originalLine in originalLines {
-            // Strip line comment but keep block comments for inline alias parsing
             let strippedLine = stripLineComment(originalLine)
             guard !strippedLine.isEmpty else { continue }
             
-            // Tokenize - this will include any /* =alias */ attached to bindings
-            let tokens = tokenizeBindingsWithAliases(strippedLine)
+            let tokens = tokenizeBindings(strippedLine)
             
             // If this line has bindings, add them to the current row
             if !tokens.isEmpty {
-                for (_, token) in tokens.enumerated() {
-                    var rawCode = token
-                    var alias: String? = nil
-                    
-                    // Check for inline alias: &binding /* =alias */
-                    if let extracted = extractInlineAlias(from: token) {
-                        rawCode = extracted.binding
-                        alias = extracted.alias
-                    }
-                    
-                    let displayText = parseDisplayText(from: rawCode)
-                    
+                for rawCode in tokens {
                     let binding = KeyBinding(
-                        displayText: displayText,
+                        displayText: parseDisplayText(from: rawCode),
                         rawCode: rawCode,
-                        alias: alias,
+                        name: nil,
                         row: currentRow,
                         column: bindings.filter { $0.row == currentRow }.count
                     )
@@ -515,8 +456,8 @@ class KeymapParser {
         return bindings
     }
     
-    /// Tokenize bindings, keeping /* =alias */ attached to their bindings
-    private static func tokenizeBindingsWithAliases(_ input: String) -> [String] {
+    /// Tokenize bindings; block comments between them are dropped
+    private static func tokenizeBindings(_ input: String) -> [String] {
         var tokens: [String] = []
         var current = ""
         var parenDepth = 0
@@ -528,23 +469,19 @@ class KeymapParser {
         while i < chars.count {
             let char = chars[i]
             
-            // Track block comments /* ... */
+            // Skip block comments /* ... */
             if !inBlockComment && i + 1 < chars.count && char == "/" && chars[i + 1] == "*" {
                 inBlockComment = true
-                current.append(char)
-                i += 1
+                i += 2
                 continue
             }
             if inBlockComment && i + 1 < chars.count && char == "*" && chars[i + 1] == "/" {
                 inBlockComment = false
-                current.append(char)
-                current.append(chars[i + 1])
                 i += 2
                 continue
             }
             
             if inBlockComment {
-                current.append(char)
                 i += 1
                 continue
             }
@@ -561,14 +498,11 @@ class KeymapParser {
                 parenDepth -= 1
                 current.append(char)
             } else if char == " " && parenDepth == 0 && !current.isEmpty {
-                // Space outside parentheses - check if next non-space is & or /*
+                // Space outside parentheses - check if next non-space is &
                 var nextNonSpace = i + 1
                 while nextNonSpace < chars.count && chars[nextNonSpace] == " " {
                     nextNonSpace += 1
                 }
-                // Check for /* (block comment that might be an alias)
-                let nextIsBlockComment = nextNonSpace + 1 < chars.count && 
-                    chars[nextNonSpace] == "/" && chars[nextNonSpace + 1] == "*"
                 
                 if nextNonSpace < chars.count && chars[nextNonSpace] == "&" {
                     // End of current token, next is a new binding
@@ -576,9 +510,6 @@ class KeymapParser {
                         tokens.append(current.trimmingCharacters(in: .whitespaces))
                     }
                     current = ""
-                } else if nextIsBlockComment {
-                    // Keep block comment attached to current token
-                    current.append(char)
                 } else {
                     current.append(char)
                 }
@@ -833,6 +764,12 @@ class KeymapParser {
     }
     
     private static func formatKey(_ key: String) -> String {
+        // What the key types in the active layout: € for LS(LA(N2)), Ö for
+        // SEMI in the German layout
+        if let typed = KeyCharacters.typedCharacter(for: key) {
+            return typed
+        }
+
         // Remove common prefixes and format nicely
         let formatted = key
             .replacingOccurrences(of: "NUMBER_", with: "")
@@ -902,6 +839,24 @@ class KeymapParser {
             "VOLUME_UP": "VOL+",
             "VOLUME_DOWN": "VOL-",
             "MUTE": "MUTE",
+            "UNDER": "_",
+            "UNDERSCORE": "_",
+            "PIPE": "|",
+            "COLON": ":",
+            "LT": "<",
+            "LESS_THAN": "<",
+            "GT": ">",
+            "GREATER_THAN": ">",
+            "QMARK": "?",
+            "QUESTION": "?",
+            "C_VOL_UP": "VOL+",
+            "C_VOL_DN": "VOL-",
+            "C_MUTE": "MUTE",
+            "C_PP": "⏯",
+            "C_NEXT": "⏭",
+            "C_PREV": "⏮",
+            "C_BRI_UP": "☀+",
+            "C_BRI_DN": "☀-",
             "N0": "0", "N1": "1", "N2": "2", "N3": "3", "N4": "4",
             "N5": "5", "N6": "6", "N7": "7", "N8": "8", "N9": "9"
         ]

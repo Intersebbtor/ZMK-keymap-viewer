@@ -2,8 +2,11 @@ import Foundation
 import Combine
 
 class KeymapViewModel: ObservableObject {
-    @Published var keymap: Keymap?
+    /// The displayed keymap: read from the keyboard when available, else the file
+    @Published private(set) var keymap: Keymap?
     @Published var currentFilePath: String?
+    /// Name of the keyboard the displayed keymap was read from, nil when it comes from the file
+    @Published private(set) var keyboardKeymapName: String?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     /// Displayed and live layer, shared by the menu and the HUD
@@ -19,6 +22,14 @@ class KeymapViewModel: ObservableObject {
         guard let index = layerSelection.liveIndex else { return nil }
         return keymap?.layers[safe: index]?.name ?? "Layer \(index)"
     }
+
+    /// Names given to keys with a right-click, by what the key does (its
+    /// label), so a name applies wherever the same binding sits
+    @Published private(set) var keyNames: [String: String] = UserDefaults.standard.dictionary(forKey: KeymapViewModel.keyNamesKey) as? [String: String] ?? [:]
+    private static let keyNamesKey = "keyNames"
+
+    private var fileKeymap: Keymap?
+    private var keyboardSnapshot: StudioSnapshot?
 
     private var fileMonitor: FileMonitor?
     private var cancellables = Set<AnyCancellable>()
@@ -56,12 +67,9 @@ class KeymapViewModel: ObservableObject {
                 if let parsed = KeymapParser.parse(from: data, filePath: filePath) {
                     DispatchQueue.main.async {
                         // A reload of the same file keeps the selected layer
-                        if filePath == self.currentFilePath {
-                            self.layerSelection.clamp(layerCount: parsed.layers.count)
-                        } else {
-                            self.layerSelection.reset(layerCount: parsed.layers.count)
-                        }
-                        self.keymap = parsed
+                        let isNewFile = filePath != self.currentFilePath
+                        self.fileKeymap = parsed
+                        self.updateDisplayedKeymap(resetSelection: isNewFile && self.keyboardSnapshot == nil)
                         self.currentFilePath = filePath
                         self.isLoading = false
                         
@@ -90,6 +98,76 @@ class KeymapViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Keymap from the keyboard
+
+    /// Shows the keymap read from the keyboard, with missing layer names
+    /// from the file. nil goes back to the file.
+    func applyKeyboardSnapshot(_ snapshot: StudioSnapshot?) {
+        let switchesSource = (snapshot == nil) != (keyboardSnapshot == nil)
+        keyboardSnapshot = snapshot
+        updateDisplayedKeymap(resetSelection: switchesSource)
+    }
+
+    private func updateDisplayedKeymap(resetSelection: Bool) {
+        var shown = fileKeymap
+        var keyboardName: String?
+        if let snapshot = keyboardSnapshot,
+           let fromKeyboard = StudioKeymapConverter.keymap(
+               from: snapshot,
+               fallbackLayerNames: fileKeymap?.layers.map(\.name) ?? []
+           ) {
+            shown = fromKeyboard
+            keyboardName = snapshot.deviceName
+        }
+
+        if var named = shown, !keyNames.isEmpty {
+            named.layers = named.layers.map(applyingKeyNames)
+            shown = named
+        }
+
+        let layerCount = shown?.layers.count ?? 0
+        if resetSelection {
+            layerSelection.reset(layerCount: layerCount)
+        } else {
+            layerSelection.clamp(layerCount: layerCount)
+        }
+        keymap = shown
+        keyboardKeymapName = keyboardName
+    }
+
+    // MARK: - Key names
+
+    func keyName(for binding: KeyBinding) -> String? {
+        keyNames[binding.displayText]
+    }
+
+    /// An empty name removes it
+    func setKeyName(_ name: String?, for binding: KeyBinding) {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        keyNames[binding.displayText] = trimmed.isEmpty ? nil : trimmed
+        UserDefaults.standard.set(keyNames, forKey: Self.keyNamesKey)
+        updateDisplayedKeymap(resetSelection: false)
+    }
+
+    /// Names given with a right-click, on every key with the same label
+    private func applyingKeyNames(_ layer: KeymapLayer) -> KeymapLayer {
+        KeymapLayer(
+            name: layer.name,
+            bindings: layer.bindings.map { binding in
+                guard let name = keyNames[binding.displayText] else { return binding }
+                return KeyBinding(displayText: binding.displayText, rawCode: binding.rawCode, name: name, row: binding.row, column: binding.column)
+            },
+            rowCount: layer.rowCount,
+            columnCount: layer.columnCount
+        )
+    }
+
+    /// Labels again after the keyboard layout changed (KeyCharacters)
+    func refreshLabels() {
+        updateDisplayedKeymap(resetSelection: false)
+        reloadCurrentKeymap()
+    }
+
     // MARK: - Layer selection
 
     func selectLayer(_ index: Int) {

@@ -1,7 +1,9 @@
 import SwiftUI
 import AppKit
+import Carbon
+import UniformTypeIdentifiers
 
-let appVersion = "1.5.0"
+let appVersion = "1.6.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
@@ -43,8 +45,6 @@ struct MenuBarIcon: View {
 
     var body: some View {
         switch MenuBarSymbol.forLayer(viewModel.layerSelection.liveIndex, showLayer: appState.showLayerInMenuBar) {
-        case .keyboard:
-            Image(systemName: "keyboard")
         case let .splitKeyboard(layer):
             Image(nsImage: SplitKeyboardIcon.image(layer: layer))
         }
@@ -71,6 +71,34 @@ class AppState: ObservableObject {
         didSet { if followLiveLayer { syncToLiveLayer() } }
     }
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
+    /// Opens keymap and config files, e.g. "code"; empty uses the app macOS
+    /// picks for the file type (Xcode for .yml, often)
+    @AppStorage("editorCommand") var editorCommand = ""
+    /// The zmk-config the firmware setup checks
+    @AppStorage("zmkConfigPath") var zmkConfigPath = ""
+    /// The key whose name is being typed in the popover
+    @Published var keyBeingNamed: KeyBinding? {
+        didSet {
+            if keyBeingNamed != nil {
+                holdsShownLayer = true
+            }
+        }
+    }
+    /// Once a key is named, the popover stays on its layer until it closes:
+    /// typing the name on the keyboard changes layers, and the next key to
+    /// name is often on the same layer
+    var holdsShownLayer = false
+    @AppStorage("readKeymapFromKeyboard") var readKeymapFromKeyboard = true {
+        didSet {
+            if readKeymapFromKeyboard {
+                showSavedKeyboardKeymap()
+                refreshKeyboardKeymap()
+            } else {
+                keymapViewModel.applyKeyboardSnapshot(nil)
+                keyboardKeymapStatus = .idle
+            }
+        }
+    }
 
     // Export Settings
     @AppStorage("exportDirectory") var exportDirectory: String = "Desktop"
@@ -95,8 +123,34 @@ class AppState: ObservableObject {
     private let liveLayerMonitor = LiveLayerMonitor()
     @Published private(set) var liveDeviceName: String?
 
+    // Keymap read from the keyboard over ZMK Studio RPC (same firmware module)
+    enum KeyboardKeymapStatus: Equatable {
+        case idle
+        case loading
+        /// Studio is locked: the keymap loads after &studio_unlock
+        case locked
+        case loaded
+        /// Shows the keymap read earlier from this keyboard. It is locked or
+        /// not connected, which is no reason to ask for &studio_unlock again.
+        case saved
+        case failed
+    }
+    @Published private(set) var keyboardKeymapStatus = KeyboardKeymapStatus.idle
+    private var studioClient: StudioClient?
+    private var unlockListener: Task<Void, Never>?
+
     init() {
         AppState.instance = self
+        // Before any keymap is parsed: labels show what keys type
+        KeyCharacters.loadSystemLayout()
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            print("[App] Keyboard layout changed")
+            KeyCharacters.loadSystemLayout()
+            self?.keymapViewModel.refreshLabels()
+        }
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()
@@ -115,6 +169,12 @@ class AppState: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.setupHUDPanel(with: self.keymapViewModel)
+        }
+        // Nothing to show yet (no file, no keymap read before): the setup
+        // opens by itself
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self, self.keymapViewModel.keymap == nil, self.recentKeymaps.isEmpty else { return }
+            self.showSetup()
         }
     }
     
@@ -138,8 +198,16 @@ class AppState: ObservableObject {
                 // The firmware only reports changes, so assume the base layer
                 // until the first one arrives
                 self.handleLiveLayer(0)
+                // Give a freshly connected keyboard a moment before the first request
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    self?.refreshKeyboardKeymap()
+                }
             } else {
                 self.keymapViewModel.clearLiveLayer()
+                MainActor.assumeIsolated { self.studioClient?.cancel() }
+                self.unlockListener?.cancel()
+                // The keymap read last stays shown until the next one arrives
+                self.keyboardKeymapStatus = self.keymapViewModel.keyboardKeymapName != nil ? .saved : .idle
             }
         }
         liveLayerMonitor.onPacket = { [weak self] packet in
@@ -148,6 +216,8 @@ class AppState: ObservableObject {
             case let .layerState(defaultLayers, activeLayers):
                 let layer = ActiveLayerResolver.highestLayer(activeLayers: activeLayers, defaultLayers: defaultLayers)
                 self.handleLiveLayer(layer)
+            case let .studioChunk(payload):
+                MainActor.assumeIsolated { self.studioClient?.receive(payload) }
             case let .keyEvent(position, pressed):
                 self.keymapViewModel.setKey(position: position, pressed: pressed)
                 // Every key press keeps the HUD awake, not only layer changes,
@@ -158,12 +228,196 @@ class AppState: ObservableObject {
                 }
             }
         }
+        MainActor.assumeIsolated {
+            let client = StudioClient { [weak self] report in
+                self?.liveLayerMonitor.send(report) ?? false
+            }
+            client.onLockStateChanged = { [weak self] state in
+                if state == .unlocked {
+                    self?.refreshKeyboardKeymap()
+                }
+            }
+            studioClient = client
+        }
+        showSavedKeyboardKeymap()
         liveLayerMonitor.start()
+    }
+
+    /// Reads the keymap from the connected keyboard (ZMK Studio RPC). The
+    /// file stays the fallback.
+    func refreshKeyboardKeymap() {
+        guard readKeymapFromKeyboard, liveLayerMonitor.connectedDeviceName != nil,
+              keyboardKeymapStatus != .loading else { return }
+        keyboardKeymapStatus = .loading
+        Task { @MainActor [weak self] in
+            guard let self = self, let client = self.studioClient else { return }
+            do {
+                let snapshot = try await client.fetchSnapshot()
+                print("[Studio] Read \(snapshot.layers.count) layers from \(snapshot.deviceName)")
+                guard self.readKeymapFromKeyboard else { return }
+                self.keymapViewModel.applyKeyboardSnapshot(snapshot)
+                self.keyboardKeymapStatus = .loaded
+                Self.saveKeyboardSnapshot(snapshot)
+            } catch {
+                // The keymap read earlier from this keyboard is still right:
+                // only Studio can change it, and Studio needs the unlock too
+                if self.keymapViewModel.keyboardKeymapName == self.liveLayerMonitor.connectedDeviceName {
+                    print("[Studio] Showing the saved keymap (\(error))")
+                    self.keyboardKeymapStatus = .saved
+                } else if case StudioError.locked = error {
+                    print("[Studio] Keyboard is locked, waiting for &studio_unlock")
+                    self.keyboardKeymapStatus = .locked
+                    self.listenForUnlock()
+                } else {
+                    print("[Studio] Reading the keymap failed: \(error)")
+                    self.keyboardKeymapStatus = .failed
+                }
+            }
+        }
+    }
+
+    // MARK: - Setup window
+
+    /// The setup lives in a window of its own; everyday use in the menu bar
+    @Published var setupPage = SetupPage.start
+    private var setupWindow: NSWindow?
+
+    func showSetup(_ page: SetupPage = .start) {
+        setupPage = page
+        if setupWindow == nil {
+            let view = SetupView()
+                .environmentObject(self)
+                .environmentObject(keymapViewModel)
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 700, height: 640),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                backing: .buffered, defer: false
+            )
+            window.title = "Set Up ZMK Keymap Viewer"
+            window.contentView = NSHostingView(rootView: view)
+            window.isReleasedWhenClosed = false
+            window.center()
+            // Closed on any page, it starts over next time; the firmware
+            // page also stops reading the zmk-config then
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+                self?.setupPage = .start
+            }
+            setupWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        setupWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    func showFirmwareSetup() {
+        showSetup(.firmware)
+    }
+
+    func closeSetup() {
+        setupWindow?.close()
+    }
+
+    // MARK: - Keymap files
+
+    func loadKeymapFile(_ path: String) {
+        keymapViewModel.loadKeymap(from: path)
+        addRecentKeymap(path)
+    }
+
+    func chooseKeymapFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose your keymap"
+        panel.message = "Usually config/<keyboard>.keymap in your zmk-config"
+        panel.allowedContentTypes = [UTType(filenameExtension: "keymap") ?? .data]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if let current = keymapViewModel.currentFilePath {
+            panel.directoryURL = URL(fileURLWithPath: current).deletingLastPathComponent()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        loadKeymapFile(url.path)
+    }
+
+    /// For .onDrop: a dropped .keymap file loads
+    func loadDroppedKeymap(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { [weak self] url, _ in
+            guard let url = url, url.pathExtension == "keymap" else { return }
+            DispatchQueue.main.async {
+                self?.loadKeymapFile(url.path)
+            }
+        }
+        return true
+    }
+
+    // MARK: - Editor
+
+    func openInEditor(_ url: URL) {
+        let command = editorCommand.trimmingCharacters(in: .whitespaces)
+        guard !command.isEmpty else {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        // A login shell finds the command like Terminal does; the path goes
+        // in as an argument, so spaces and quotes in it are safe
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lc", "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" \(command) \"$1\"", "zsh", url.path]
+        process.terminationHandler = { finished in
+            guard finished.terminationStatus != 0 else { return }
+            print("[Editor] \(command) failed (\(finished.terminationStatus)), opening with the default app")
+            DispatchQueue.main.async { NSWorkspace.shared.open(url) }
+        }
+        do {
+            try process.run()
+        } catch {
+            print("[Editor] Couldn't run \(command): \(error)")
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Saved keymap
+
+    private static let savedSnapshotKey = "keyboardSnapshot"
+
+    private static func saveKeyboardSnapshot(_ snapshot: StudioSnapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        UserDefaults.standard.set(data, forKey: savedSnapshotKey)
+    }
+
+    /// The keymap read last, right at launch: no waiting for the keyboard,
+    /// and no &studio_unlock after every restart of keyboard or Mac
+    private func showSavedKeyboardKeymap() {
+        guard readKeymapFromKeyboard, keymapViewModel.keyboardKeymapName == nil,
+              let data = UserDefaults.standard.data(forKey: Self.savedSnapshotKey),
+              let snapshot = try? JSONDecoder().decode(StudioSnapshot.self, from: data) else { return }
+        print("[Studio] Showing the saved keymap of \(snapshot.deviceName)")
+        keymapViewModel.applyKeyboardSnapshot(snapshot)
+        keyboardKeymapStatus = .saved
+    }
+
+    /// The unlock notification doesn't always reach the app, so while the
+    /// keyboard is locked it is asked again every 1.5 seconds. The keymap
+    /// loads right after &studio_unlock, without another key press.
+    private func listenForUnlock() {
+        unlockListener?.cancel()
+        unlockListener = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                guard let self = self, !Task.isCancelled, self.keyboardKeymapStatus == .locked,
+                      self.liveLayerMonitor.connectedDeviceName != nil, let client = self.studioClient else { return }
+                if (try? await client.lockState()) == .unlocked {
+                    print("[Studio] Keyboard was unlocked")
+                    self.refreshKeyboardKeymap()
+                    return
+                }
+            }
+        }
     }
 
     private func handleLiveLayer(_ index: Int) {
         print("[LiveLayer] Active layer: \(index)")
-        keymapViewModel.applyLiveLayer(index, follow: followLiveLayer)
+        keymapViewModel.applyLiveLayer(index, follow: followLiveLayer && !holdsShownLayer)
         wakeHUD()
     }
 

@@ -7,12 +7,13 @@ enum LayerPacket: Equatable {
     case layerState(defaultLayers: UInt32, activeLayers: UInt32)
     /// The key at `position` was pressed or released.
     case keyEvent(position: Int, pressed: Bool)
+    /// A chunk of the ZMK Studio RPC stream (StudioHIDTunnel)
+    case studioChunk([UInt8])
 
     static let layerStateMarker: UInt8 = 0xFF
     static let keyEventMarker: UInt8 = 0xF1
 
-    /// Decodes one report. Returns nil for unknown or truncated reports
-    /// (e.g. 0xF2, the Studio RPC tunnel of the same module).
+    /// Decodes one report. Returns nil for unknown or truncated reports.
     static func decode(_ bytes: [UInt8]) -> LayerPacket? {
         guard let marker = bytes.first else { return nil }
 
@@ -28,6 +29,8 @@ enum LayerPacket: Equatable {
             // [0xF1, 0x00, position, pressed]
             guard bytes.count >= 4 else { return nil }
             return .keyEvent(position: Int(bytes[2]), pressed: bytes[3] == 1)
+        case StudioHIDTunnel.marker:
+            return StudioHIDTunnel.payload(of: bytes).map(LayerPacket.studioChunk)
         default:
             return nil
         }
@@ -50,17 +53,16 @@ enum ActiveLayerResolver {
 }
 
 enum MenuBarSymbol: Equatable {
-    /// SF Symbol "keyboard"
-    case keyboard
     /// Split keyboard with the layer number between the halves (SplitKeyboardIcon).
-    /// One width for all single-digit layers, so the menu bar item doesn't jump.
-    case splitKeyboard(layer: Int)
+    /// One width for all single-digit layers and for no number, so the menu
+    /// bar item doesn't jump.
+    case splitKeyboard(layer: Int?)
 
     /// The live layer as a split keyboard, including 0 for the base layer.
-    /// The plain keyboard without a connected keyboard.
+    /// No number while no keyboard is connected (e.g. during a reset) or the
+    /// layer is hidden, so the icon stays the same.
     static func forLayer(_ liveIndex: Int?, showLayer: Bool) -> MenuBarSymbol {
-        guard showLayer, let index = liveIndex else { return .keyboard }
-        return .splitKeyboard(layer: index)
+        .splitKeyboard(layer: showLayer ? liveIndex : nil)
     }
 }
 

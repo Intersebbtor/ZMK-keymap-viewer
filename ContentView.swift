@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - VisualEffectView for background blur
 struct VisualEffectView: NSViewRepresentable {
@@ -139,15 +140,24 @@ struct KeyboardGridView: View {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
-    @State private var pathText: String = ""
     @State private var isRecordingShortcut = false
-    
+    @State private var isDropTargeted = false
+    @State private var keyNameText = ""
+    @FocusState private var isKeyNameFocused: Bool
+
+    /// No keymap yet: the popover only points to the setup
+    private var showsSetup: Bool {
+        viewModel.keymap == nil && !appState.isSettingsVisible
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with file info and layout
-            headerView
-            
-            Divider()
+            if !showsSetup {
+                headerView
+
+                Divider()
+            }
             
             ZStack {
                 if appState.isSettingsVisible {
@@ -166,12 +176,18 @@ struct ContentView: View {
                             layerTabsView
                             keymapVisualizationView
                         }
+                        .overlay {
+                            if let binding = appState.keyBeingNamed {
+                                keyNameEditor(for: binding)
+                            }
+                        }
                     }
                 } else {
-                    emptyStateView
+                    placeholderView
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Spare height goes below the keyboard, not around the tabs
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: appState.isSettingsVisible)
             
             Divider()
@@ -255,16 +271,27 @@ struct ContentView: View {
             // Auto-load most recent keymap
             if let mostRecent = appState.recentKeymaps.first {
                 print("[ContentView] Loading most recent keymap: \(mostRecent)")
-                pathText = mostRecent
-                loadKeymap(from: mostRecent)
+                appState.loadKeymapFile(mostRecent)
             } else {
                 print("[ContentView] No recent keymaps found")
+            }
+        }
+        // A .keymap file dropped anywhere on the popover loads
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: appState.loadDroppedKeymap)
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentColor, lineWidth: 3)
+                    .padding(2)
+                    .allowsHitTesting(false)
             }
         }
         // Reopening the popover starts on the keymap, not on the settings
         .background(WindowHideObserver {
             print("[ContentView] Popover hidden")
             appState.isSettingsVisible = false
+            appState.keyBeingNamed = nil
+            appState.holdsShownLayer = false
         })
     }
     
@@ -289,141 +316,212 @@ struct ContentView: View {
         let keySpacing: CGFloat = 3
         let thumbExtra: CGFloat = layout.hasThumbCluster ? 20 : 0
         
-        // Header (~100) + Tabs (~40) + Keyboard + Footer (~40)
-        let totalHeight = 100 + 40 + (rowCount * keyHeight) + ((rowCount - 1) * keySpacing) + thumbExtra + 60
-        return max(500, totalHeight)
+        // Header (one line from the keyboard, three with a file) + tabs
+        // (~30 per row of 6) + keyboard + footer
+        let header: CGFloat = viewModel.keyboardKeymapName != nil ? 52 : 100
+        let tabRows = CGFloat(((viewModel.keymap?.layers.count ?? 1) + 5) / 6)
+        let tabs = 16 + tabRows * 26 + (tabRows - 1) * 4
+        let totalHeight = header + tabs + (rowCount * keyHeight) + ((rowCount - 1) * keySpacing) + thumbExtra + 40 + 50
+        return max(320, totalHeight)
     }
     
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 4) { // Reduce internal spacing
-            HStack {
-                Text("Keymap File")
-                    .font(.subheadline.bold()) // A bit smaller to save space
-                
-                Spacer()
-                // Recent keymaps menu
-                if !appState.recentKeymaps.isEmpty {
-                    Menu {
-                        ForEach(appState.recentKeymaps, id: \.self) { path in
-                            Button {
-                                pathText = path
-                                loadKeymap(from: path)
-                            } label: {
-                                let filename = URL(fileURLWithPath: path).lastPathComponent
-                                let isSelected = path == viewModel.currentFilePath
-                                if isSelected {
-                                    Label(filename, systemImage: "checkmark")
-                                } else {
-                                    Text(filename)
+            if viewModel.keyboardKeymapName != nil {
+                // Read from the keyboard: a file has no say then, so its
+                // controls stay hidden (Settings → Live Layer turns reading off)
+                HStack(spacing: 8) {
+                    Text("Keymap")
+                        .font(.subheadline.bold())
+                    keyboardSourceView
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Text("Keymap")
+                        .font(.subheadline.bold()) // A bit smaller to save space
+
+                    Spacer()
+
+                    Button {
+                        appState.chooseKeymapFile()
+                    } label: {
+                        Label("Choose File…", systemImage: "folder")
+                    }
+                    .controlSize(.small)
+
+                    // Recent keymaps menu
+                    if !appState.recentKeymaps.isEmpty {
+                        Menu {
+                            ForEach(appState.recentKeymaps, id: \.self) { path in
+                                Button {
+                                    appState.loadKeymapFile(path)
+                                } label: {
+                                    let filename = URL(fileURLWithPath: path).lastPathComponent
+                                    let isSelected = path == viewModel.currentFilePath
+                                    if isSelected {
+                                        Label(filename, systemImage: "checkmark")
+                                    } else {
+                                        Text(filename)
+                                    }
                                 }
                             }
-                        }
                         
-                        Divider()
+                            Divider()
                         
-                        Button(role: .destructive) {
-                            appState.clearRecentKeymaps()
+                            Button(role: .destructive) {
+                                appState.clearRecentKeymaps()
+                            } label: {
+                                Label("Clear History", systemImage: "trash")
+                            }
                         } label: {
-                            Label("Clear History", systemImage: "trash")
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                Text("Recent")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(4)
                         }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock.arrow.circlepath")
-                            Text("Recent")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(4)
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
                     }
-                    .menuStyle(.borderlessButton)
                 }
-            }
             
-            // Persistent path text field
-            HStack(spacing: 8) {
-                TextField("Path to .keymap file", text: $pathText)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12, design: .monospaced))
-                    .onSubmit {
-                        loadFromPathText()
-                    }
-                
-                Button {
-                    loadFromPathText()
-                } label: {
-                    Label("Load", systemImage: "folder")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(pathText.isEmpty)
-            }
-            
-            // Status row
-            HStack(spacing: 8) {
+                // The loaded file, ~ instead of the home folder: shorter, and
+                // keeps the user name out of screenshots
                 if let filePath = viewModel.currentFilePath {
-                    Button {
-                        NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
-                    } label: {
-                        Label("Open in Editor", systemImage: "pencil.and.outline")
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+                    Text((filePath as NSString).abbreviatingWithTildeInPath)
+                        .font(.system(size: 12, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                
-                Spacer()
-                
-                if let keymap = viewModel.keymap {
-                    Text(keymap.layout.name)
+            
+                // Status row
+                HStack(spacing: 8) {
+                    keyboardSourceView
+
+                    if let filePath = viewModel.currentFilePath {
+                        Button {
+                            appState.openInEditor(URL(fileURLWithPath: filePath))
+                        } label: {
+                            Label("Open in Editor", systemImage: "pencil.and.outline")
+                        }
+                        .buttonStyle(.borderless)
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(4)
+                    }
+                
+                    Spacer()
+                
+                    if let keymap = viewModel.keymap {
+                        Text(keymap.layout.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(4)
+                    }
                 }
             }
         }
         .padding()
     }
-    
+
+    /// Where the shown keymap comes from when the keyboard is involved
+    @ViewBuilder
+    private var keyboardSourceView: some View {
+        let device = appState.liveDeviceName ?? viewModel.keyboardKeymapName ?? "Keyboard"
+        switch appState.keyboardKeymapStatus {
+        case .loading:
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text("Reading \(device)…")
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+        case .locked:
+            Button {
+                appState.refreshKeyboardKeymap()
+            } label: {
+                Label("Press &studio_unlock to read \(device)", systemImage: "lock")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+            .buttonStyle(.plain)
+            .help("ZMK Studio is locked. Once unlocked, the keymap loads from the keyboard. Click to check again.")
+        case .failed:
+            Button {
+                appState.refreshKeyboardKeymap()
+            } label: {
+                Label("\(device) didn't send its keymap", systemImage: "exclamationmark.triangle")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .help("Retry. Reading the keymap needs ZMK Studio in the firmware.")
+        case .saved:
+            if let name = viewModel.keyboardKeymapName {
+                Button {
+                    appState.refreshKeyboardKeymap()
+                } label: {
+                    Text("From \(name) · saved")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("Read earlier from \(name). Click to read it again; when the keyboard is locked, press &studio_unlock first.")
+            }
+        case .idle, .loaded:
+            if let name = viewModel.keyboardKeymapName {
+                Button {
+                    appState.refreshKeyboardKeymap()
+                } label: {
+                    Text("From \(name)")
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("The keymap is read from the keyboard. Click to read it again.")
+            }
+        }
+    }
+
     private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
 
+    /// As tall as its rows of tabs, so no empty band sits around them
     private var layerTabsView: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 4) {
-                if let keymap = viewModel.keymap {
-                    let layers = Array(keymap.layers.enumerated())
-                    // Split into rows of max 6 layers each
-                    let maxPerRow = 6
-                    let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
-                        Array(layers[start..<min(start + maxPerRow, layers.count)])
-                    }
-                    ForEach(0..<rows.count, id: \.self) { rowIdx in
-                        HStack(spacing: 8) {
-                            ForEach(rows[rowIdx], id: \.1.id) { index, layer in
-                                Button(action: { viewModel.selectLayer(index) }) {
-                                    Text(layer.name)
-                                        .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
-                                        .lineLimit(1)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
-                                        )
-                                        .foregroundColor(selectedLayerIndex == index ? .white : .primary)
-                                }
-                                .buttonStyle(.plain)
+        VStack(spacing: 4) {
+            if let keymap = viewModel.keymap {
+                let layers = Array(keymap.layers.enumerated())
+                // Split into rows of max 6 layers each
+                let maxPerRow = 6
+                let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
+                    Array(layers[start..<min(start + maxPerRow, layers.count)])
+                }
+                ForEach(0..<rows.count, id: \.self) { rowIdx in
+                    HStack(spacing: 8) {
+                        ForEach(rows[rowIdx], id: \.1.id) { index, layer in
+                            Button(action: { viewModel.selectLayer(index) }) {
+                                Text(layer.name)
+                                    .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
+                                    )
+                                    .foregroundColor(selectedLayerIndex == index ? .white : .primary)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
-            .padding(.vertical, 8)
         }
-        .frame(maxHeight: 120) // Limit height, scroll if more layers
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(Color(NSColor.controlBackgroundColor))
     }
@@ -441,37 +539,84 @@ struct ContentView: View {
                     pressedPositions: viewModel.pressedPositions
                 )
                 .padding(20)
+                .environment(\.keyNaming, KeyNaming(
+                    name: askForKeyName,
+                    hasName: { viewModel.keyName(for: $0) != nil },
+                    removeName: { viewModel.setKeyName(nil, for: $0) }
+                ))
             }
         }
     }
     
-    private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 48))
+    /// No keymap yet: the setup window has the way to one
+    private var placeholderView: some View {
+        VStack(spacing: 14) {
+            Image(nsImage: SplitKeyboardIcon.image(layer: nil))
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 72)
                 .foregroundColor(.secondary)
-            
-            Text("No keymap loaded")
+            Text("No keymap yet")
                 .font(.headline)
-                .foregroundColor(.secondary)
-            
-            Text("Paste a path above and press Load")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Button("Set Up a Keyboard…") { appState.showSetup() }
+                .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    
-    private func loadFromPathText() {
-        let path = (pathText.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
-        guard !path.isEmpty else { return }
-        guard path.hasSuffix(".keymap") else { return }
-        guard FileManager.default.fileExists(atPath: path) else { return }
-        loadKeymap(from: path)
-        // Keep menu bar window active after loading
+
+    /// Naming happens inside the popover: a separate dialog would take the
+    /// focus and close it
+    private func askForKeyName(_ binding: KeyBinding) {
+        keyNameText = viewModel.keyName(for: binding) ?? ""
+        appState.keyBeingNamed = binding
         DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
+            isKeyNameFocused = true
         }
+    }
+
+    private func keyNameEditor(for binding: KeyBinding) -> some View {
+        let current = binding.displayText.replacingOccurrences(of: "\n", with: " ")
+        return ZStack {
+            Color.black.opacity(0.25)
+                .onTapGesture { appState.keyBeingNamed = nil }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Name this key")
+                    .font(.headline)
+                Text("Shown instead of \(current) wherever that binding sits.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField("e.g. Screenshot", text: $keyNameText)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($isKeyNameFocused)
+                    .onSubmit { saveKeyName(for: binding) }
+                HStack {
+                    if viewModel.keyName(for: binding) != nil {
+                        Button("Remove Name") {
+                            viewModel.setKeyName(nil, for: binding)
+                            appState.keyBeingNamed = nil
+                        }
+                    }
+                    Spacer()
+                    Button("Cancel") { appState.keyBeingNamed = nil }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save") { saveKeyName(for: binding) }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(width: 340)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+        }
+    }
+
+    private func saveKeyName(for binding: KeyBinding) {
+        viewModel.setKeyName(keyNameText, for: binding)
+        appState.keyBeingNamed = nil
     }
 
     // MARK: - Subviews
@@ -566,10 +711,16 @@ struct ContentView: View {
                         .font(.caption2)
                     Toggle("Show layer number in menu bar", isOn: $appState.showLayerInMenuBar)
                         .font(.caption2)
+                    Toggle("Read the keymap from the keyboard (ZMK Studio)", isOn: $appState.readKeymapFromKeyboard)
+                        .font(.caption2)
 
-                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules.")
+                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules. Reading the keymap also needs ZMK Studio; otherwise the app uses the file.")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
+                    Button("Set Up a Keyboard…") {
+                        appState.showSetup()
+                    }
+                    .controlSize(.small)
                 }
 
                 Divider()
@@ -609,6 +760,25 @@ struct ContentView: View {
                         .font(.caption2)
                 }
                 
+                Divider()
+
+                // Editor Section
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Editor", systemImage: "pencil.and.outline")
+                        .font(.caption.bold())
+                    HStack {
+                        Text("Open files with")
+                            .font(.caption2)
+                        TextField("Default app", text: $appState.editorCommand)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 160)
+                    }
+                    Text("A command like code, cursor, zed or subl. Empty opens files with the app macOS picks.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+
                 Divider()
                 
                 // PDF Export Section
@@ -754,22 +924,29 @@ struct ContentView: View {
         }
     }
     
-    private func loadKeymap(from path: String) {
-        // Show ~ instead of the home folder: shorter, and keeps the user name out of screenshots
-        pathText = (path as NSString).abbreviatingWithTildeInPath
-        viewModel.loadKeymap(from: path)
-        appState.addRecentKeymap(path)
-        // The view model resets the displayed layer when a different file loads
-        // Keep menu bar window active
-        DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
-        }
-    }
 }
 
 
 
 // MARK: - Key View with Tooltip
+
+/// Naming keys with a right-click: in the popover, not in the HUD
+struct KeyNaming {
+    let name: (KeyBinding) -> Void
+    let hasName: (KeyBinding) -> Bool
+    let removeName: (KeyBinding) -> Void
+}
+
+private struct KeyNamingKey: EnvironmentKey {
+    static let defaultValue: KeyNaming? = nil
+}
+
+extension EnvironmentValues {
+    var keyNaming: KeyNaming? {
+        get { self[KeyNamingKey.self] }
+        set { self[KeyNamingKey.self] = newValue }
+    }
+}
 
 struct KeyView: View {
     let binding: KeyBinding
@@ -777,14 +954,16 @@ struct KeyView: View {
     /// Held down on the keyboard right now
     var isPressed: Bool = false
 
+    @Environment(\.keyNaming) private var keyNaming
+
     @State private var isHovered = false
     @State private var showTooltip = false
     
-    /// The text to display on the key - alias if present, otherwise parsed display text
+    /// The text to display on the key - its name if present, otherwise parsed display text
     private var displayLabel: String {
         let text = binding.effectiveDisplayText
-        // Wrap long aliases after ~8 chars for better fit
-        if hasAlias && text.count > 8 {
+        // Wrap long names after ~8 chars for better fit
+        if hasName && text.count > 8 {
             // Find a good break point (space, or just split at 8)
             if let spaceIndex = text.firstIndex(of: " "), text.distance(from: text.startIndex, to: spaceIndex) <= 10 {
                 var result = text
@@ -795,9 +974,9 @@ struct KeyView: View {
         return text
     }
     
-    /// Whether this key has a user-defined alias
-    private var hasAlias: Bool {
-        binding.alias != nil
+    /// Whether this key was given a name
+    private var hasName: Bool {
+        binding.name != nil
     }
     
     var body: some View {
@@ -812,7 +991,7 @@ struct KeyView: View {
                     .fill(Color.accentColor.opacity(0.55))
             }
 
-            // Key border - highlight aliased keys with a subtle accent
+            // Key border - highlight hovered and pressed keys
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(borderColor, lineWidth: isHovered || isPressed ? 2 : 1)
             
@@ -851,6 +1030,14 @@ struct KeyView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: showTooltip)
+        .contextMenu {
+            if let keyNaming = keyNaming {
+                Button("Name This Key…") { keyNaming.name(binding) }
+                if keyNaming.hasName(binding) {
+                    Button("Remove Name") { keyNaming.removeName(binding) }
+                }
+            }
+        }
     }
     
     private var borderColor: Color {
@@ -861,7 +1048,7 @@ struct KeyView: View {
     }
     
     private var keyBackgroundColor: Color {
-        // Use displayText (not alias) for color logic so colors stay consistent
+        // Use displayText (not the name) for color logic so colors stay consistent
         if binding.displayText == "▽" {
             return Color.gray.opacity(0.1)
         } else if binding.displayText == "✕" {

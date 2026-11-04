@@ -3,27 +3,28 @@ import AppKit
 /// Menu bar icon of a split keyboard with the layer number between the halves.
 /// Each half is a schematic Sweep half: a key grid and a wide thumb key under
 /// the inner columns. Drawn in code as a template image, so it follows the
-/// menu bar's appearance, and cached per layer.
+/// menu bar's appearance, and cached per layer. Without a layer the halves
+/// keep their place and the gap stays empty.
 enum SplitKeyboardIcon {
     /// Size with a single digit; every further digit widens the icon
     static let size = NSSize(width: 35, height: 16)
     private static let font = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .bold)
 
-    private static var cache: [Int: NSImage] = [:]
+    private static var cache: [Int?: NSImage] = [:]
 
-    static func image(layer: Int) -> NSImage {
+    static func image(layer: Int?) -> NSImage {
         if let cached = cache[layer] {
             return cached
         }
-        let text = "\(layer)" as NSString
+        let text = (layer.map { "\($0)" } ?? "") as NSString
         let digitWidth = ("0" as NSString).size(withAttributes: [.font: font]).width
-        let imageSize = NSSize(width: size.width + CGFloat(text.length - 1) * digitWidth, height: size.height)
+        let imageSize = NSSize(width: size.width + CGFloat(max(text.length - 1, 0)) * digitWidth, height: size.height)
         let image = NSImage(size: imageSize, flipped: false) { _ in
             draw(text, in: imageSize)
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "Layer \(layer)"
+        image.accessibilityDescription = layer.map { "Layer \($0)" } ?? "ZMK Keymap Viewer"
         cache[layer] = image
         return image
     }
