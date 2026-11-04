@@ -217,7 +217,7 @@ struct FirmwareSetupView: View {
         if let url = configFolder?.appendingPathComponent(file),
            FileManager.default.fileExists(atPath: url.path) {
             Button {
-                NSWorkspace.shared.open(url)
+                appState.openInEditor(url)
             } label: {
                 HStack(spacing: 3) {
                     label

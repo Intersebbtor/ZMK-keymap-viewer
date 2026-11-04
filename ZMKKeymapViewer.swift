@@ -72,6 +72,9 @@ class AppState: ObservableObject {
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
     /// The setup guide's last step, shown once with the first keymap
     @AppStorage("hasSeenKeyNamesGuide") var hasSeenKeyNamesGuide = false
+    /// Opens keymap and config files, e.g. "code"; empty uses the app macOS
+    /// picks for the file type (Xcode for .yml, often)
+    @AppStorage("editorCommand") var editorCommand = ""
     /// The zmk-config the firmware setup checks
     @AppStorage("zmkConfigPath") var zmkConfigPath = ""
     @Published var isFirmwareSetupVisible = false
@@ -266,6 +269,32 @@ class AppState: ObservableObject {
                     self.keyboardKeymapStatus = .failed
                 }
             }
+        }
+    }
+
+    // MARK: - Editor
+
+    func openInEditor(_ url: URL) {
+        let command = editorCommand.trimmingCharacters(in: .whitespaces)
+        guard !command.isEmpty else {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        // A login shell finds the command like Terminal does; the path goes
+        // in as an argument, so spaces and quotes in it are safe
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lc", "PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" \(command) \"$1\"", "zsh", url.path]
+        process.terminationHandler = { finished in
+            guard finished.terminationStatus != 0 else { return }
+            print("[Editor] \(command) failed (\(finished.terminationStatus)), opening with the default app")
+            DispatchQueue.main.async { NSWorkspace.shared.open(url) }
+        }
+        do {
+            try process.run()
+        } catch {
+            print("[Editor] Couldn't run \(command): \(error)")
+            NSWorkspace.shared.open(url)
         }
     }
 

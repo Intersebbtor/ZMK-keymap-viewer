@@ -406,7 +406,7 @@ struct ContentView: View {
 
                     if let filePath = viewModel.currentFilePath {
                         Button {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
+                            appState.openInEditor(URL(fileURLWithPath: filePath))
                         } label: {
                             Label("Open in Editor", systemImage: "pencil.and.outline")
                         }
@@ -927,6 +927,25 @@ struct ContentView: View {
                         .font(.caption2)
                 }
                 
+                Divider()
+
+                // Editor Section
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Editor", systemImage: "pencil.and.outline")
+                        .font(.caption.bold())
+                    HStack {
+                        Text("Open files with")
+                            .font(.caption2)
+                        TextField("Default app", text: $appState.editorCommand)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(width: 160)
+                    }
+                    Text("A command like code, cursor, zed or subl. Empty opens files with the app macOS picks.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+
                 Divider()
                 
                 // PDF Export Section
