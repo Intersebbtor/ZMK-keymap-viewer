@@ -143,6 +143,7 @@ struct ContentView: View {
     @State private var isRecordingShortcut = false
     @State private var isDropTargeted = false
     @State private var keyNameText = ""
+    @State private var showsNameSyntax = false
     @FocusState private var isKeyNameFocused: Bool
 
     /// No keymap yet, or its last step: the setup guide takes the whole popover
@@ -287,12 +288,18 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
+        .overlay {
+            if showsNameSyntax {
+                nameSyntaxCard
+            }
+        }
         // Reopening the popover starts on the keymap, not on the settings
         .background(WindowHideObserver {
             print("[ContentView] Popover hidden")
             appState.isSettingsVisible = false
             appState.keyBeingNamed = nil
             appState.holdsShownLayer = false
+            showsNameSyntax = false
         })
     }
     
@@ -378,19 +385,24 @@ struct ContentView: View {
             
             // The loaded file, ~ instead of the home folder: shorter, and
             // keeps the user name out of screenshots
-            Group {
-                if let filePath = viewModel.currentFilePath {
-                    Text((filePath as NSString).abbreviatingWithTildeInPath)
-                        .foregroundColor(.primary)
-                } else {
-                    Text("No file needed. Right-click a key to name it.")
+            if let filePath = viewModel.currentFilePath {
+                Text((filePath as NSString).abbreviatingWithTildeInPath)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: 6) {
+                    Text("You may choose your keymap file if you want to set your key and macro names there.")
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Button("Show me how") { showsNameSyntax = true }
+                        .buttonStyle(.link)
                 }
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .font(.system(size: 12, design: .monospaced))
-            .lineLimit(1)
-            .truncationMode(.middle)
-            .frame(maxWidth: .infinity, alignment: .leading)
             
             // Status row
             HStack(spacing: 8) {
@@ -758,6 +770,52 @@ struct ContentView: View {
             }
             .padding(20)
             .frame(width: 340)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+        }
+    }
+
+    /// How names are written in a .keymap file, from the header's "Show me how"
+    private var nameSyntaxCard: some View {
+        ZStack {
+            Color.black.opacity(0.25)
+                .onTapGesture { showsNameSyntax = false }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Names in your .keymap file")
+                    .font(.headline)
+                Text("Put a comment with = right after a binding. The key shows the name instead of its keys:")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("&kp LS(LG(N4)) /* =Screenshot */")
+                    Text("&kp LC(LA(LG(C))) /* =Finder */")
+                    Text("&my_macro /* =Ä */")
+                }
+                .font(.system(size: 12, design: .monospaced))
+                .textSelection(.enabled)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                Text("The app follows your edits to the file. A name given with a right-click wins over the file.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button("Done") { showsNameSyntax = false }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Choose File…") {
+                        showsNameSyntax = false
+                        chooseKeymapFile()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(20)
+            .frame(width: 400)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
             .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
