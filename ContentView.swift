@@ -147,7 +147,8 @@ struct ContentView: View {
 
     /// No keymap yet, or its last step: the setup guide takes the whole popover
     private var showsSetup: Bool {
-        (viewModel.keymap == nil || !appState.hasSeenKeyNamesGuide) && !appState.isSettingsVisible
+        appState.isFirmwareSetupVisible
+            || ((viewModel.keymap == nil || !appState.hasSeenKeyNamesGuide) && !appState.isSettingsVisible)
     }
 
     var body: some View {
@@ -160,7 +161,9 @@ struct ContentView: View {
             }
             
             ZStack {
-                if appState.isSettingsVisible {
+                if appState.isFirmwareSetupVisible {
+                    FirmwareSetupView()
+                } else if appState.isSettingsVisible {
                     // Scrollable, so tall settings never push the header and
                     // footer out of the popover (which also broke clicks)
                     ScrollView(.vertical, showsIndicators: false) {
@@ -602,14 +605,14 @@ struct ContentView: View {
     @ViewBuilder
     private var keyboardSetupContent: some View {
         let device = appState.liveDeviceName ?? "Your keyboard"
-        let firmwareGuide = URL(string: "https://github.com/\(githubRepo)#-live-layer")!
         if !appState.readKeymapFromKeyboard {
             Text("Reading the keymap from the keyboard is turned off.")
             Button("Turn On") { appState.readKeymapFromKeyboard = true }
         } else if appState.liveDeviceName == nil {
             Text("Connect your ZMK keyboard over USB or Bluetooth. Its firmware needs ZMK Studio and the layer notifier module.")
             waitingRow("Waiting for a keyboard…")
-            Link("How to set up the firmware", destination: firmwareGuide)
+            Button("Set up my firmware…") { appState.isFirmwareSetupVisible = true }
+                .buttonStyle(.link)
                 .font(.caption)
         } else {
             switch appState.keyboardKeymapStatus {
@@ -625,10 +628,14 @@ struct ContentView: View {
                     }
                 }
                 waitingRow("Listening for the unlock…")
+                Button("No unlock key yet? Set up my firmware…") { appState.isFirmwareSetupVisible = true }
+                    .buttonStyle(.link)
+                    .font(.caption)
             case .failed:
                 Text("\(device) didn't send its keymap. Its firmware might not have ZMK Studio.")
                 Button("Try Again") { appState.refreshKeyboardKeymap() }
-                Link("How to set up the firmware", destination: firmwareGuide)
+                Button("Set up my firmware…") { appState.isFirmwareSetupVisible = true }
+                    .buttonStyle(.link)
                     .font(.caption)
             case .idle, .loading, .loaded, .saved:
                 Text("Connected to \(device).")
@@ -876,6 +883,11 @@ struct ContentView: View {
                     Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules. Reading the keymap also needs ZMK Studio; otherwise the app uses the file.")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
+                    Button("Firmware Setup…") {
+                        appState.isSettingsVisible = false
+                        appState.isFirmwareSetupVisible = true
+                    }
+                    .controlSize(.small)
                 }
 
                 Divider()

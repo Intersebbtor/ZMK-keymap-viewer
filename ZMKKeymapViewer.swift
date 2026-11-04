@@ -72,6 +72,9 @@ class AppState: ObservableObject {
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
     /// The setup guide's last step, shown once with the first keymap
     @AppStorage("hasSeenKeyNamesGuide") var hasSeenKeyNamesGuide = false
+    /// The zmk-config the firmware setup checks
+    @AppStorage("zmkConfigPath") var zmkConfigPath = ""
+    @Published var isFirmwareSetupVisible = false
     /// The key whose name is being typed in the popover
     @Published var keyBeingNamed: KeyBinding? {
         didSet {

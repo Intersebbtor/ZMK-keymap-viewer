@@ -32,7 +32,9 @@ let package = Package(
                 "StudioProtocol.swift",
                 "StudioClient.swift",
                 "StudioKeymap.swift",
-                "KeyCharacters.swift"
+                "KeyCharacters.swift",
+                "FirmwareSetup.swift",
+                "FirmwareSetupView.swift"
             ]
         ),
         .testTarget(

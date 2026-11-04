@@ -83,6 +83,8 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 **Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
 
+The app walks you through it: **Set up my firmware…** in the setup guide (or Settings → Live Layer → Firmware Setup…) shows each step with examples to copy, fitted to your keyboard. Choose your zmk-config folder and it ticks off what's already done. It only reads your files.
+
 1. Add the modules to `config/west.yml`:
 
    ```yaml
