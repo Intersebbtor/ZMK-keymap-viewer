@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import Carbon
 
-let appVersion = "1.5.0"
+let appVersion = "1.6.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
