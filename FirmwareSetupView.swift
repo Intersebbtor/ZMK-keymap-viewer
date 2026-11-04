@@ -198,9 +198,7 @@ struct FirmwareSetupView: View {
                         .bold()
                         .foregroundColor(done ? .secondary : .primary)
                     if let file = file {
-                        Text(file)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.secondary)
+                        fileLabel(file)
                     }
                 }
                 if !done {
@@ -209,6 +207,28 @@ struct FirmwareSetupView: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+    }
+
+    /// The step's file; opens in the default editor once the zmk-config is known
+    @ViewBuilder
+    private func fileLabel(_ file: String) -> some View {
+        let label = Text(file).font(.system(size: 11, design: .monospaced))
+        if let url = configFolder?.appendingPathComponent(file),
+           FileManager.default.fileExists(atPath: url.path) {
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                HStack(spacing: 3) {
+                    label
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.system(size: 10))
+                }
+            }
+            .buttonStyle(.link)
+            .help("Open \(file) in your editor")
+        } else {
+            label.foregroundColor(.secondary)
         }
     }
 
