@@ -134,13 +134,17 @@ struct WPMView: View {
             WPMGraph(values: history)
                 .stroke(Color.accentColor.opacity(0.8), style: StrokeStyle(lineWidth: 1.2, lineJoin: .round))
                 .frame(width: 54, height: 14)
+            // Room for three digits, so 99 → 100 doesn't shift or cut the number
             Text("\(wpm)")
                 .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
-                .frame(minWidth: 22, alignment: .trailing)
+                .lineLimit(1)
+                .frame(minWidth: 26, alignment: .trailing)
             Text("WPM")
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundColor(.secondary)
+                .lineLimit(1)
         }
+        .fixedSize()
         .help("Typing speed: five key presses make a word, averaged over the last five seconds")
     }
 }
