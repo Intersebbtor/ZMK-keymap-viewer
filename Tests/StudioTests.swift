@@ -228,18 +228,6 @@ class StudioTests: XCTestCase {
     }
 
     @MainActor
-    func testAliasesFromFileAreKept() async throws {
-        let snapshot = try await FakeStudioKeyboard.sweep().connectedClient().fetchSnapshot()
-        var aliases = Array(repeating: [String?](repeating: nil, count: 34), count: 2)
-        aliases[0][33] = "Bang"
-
-        let keymap = try XCTUnwrap(StudioKeymapConverter.keymap(from: snapshot, aliases: aliases))
-
-        XCTAssertEqual(keymap.layers[0].bindings[33].effectiveDisplayText, "Bang")
-        XCTAssertNil(keymap.layers[0].bindings[32].alias)
-    }
-
-    @MainActor
     func testViewModelPrefersKeyboardAndFallsBack() async throws {
         let snapshot = try await FakeStudioKeyboard.sweep().connectedClient().fetchSnapshot()
         let viewModel = KeymapViewModel()
@@ -268,7 +256,7 @@ class StudioTests: XCTestCase {
         XCTAssertTrue(named.allSatisfy { $0.effectiveDisplayText == "Through" })
 
         viewModel.setKeyName("", for: binding)
-        XCTAssertTrue(viewModel.keymap!.layers.flatMap(\.bindings).allSatisfy { $0.alias == nil })
+        XCTAssertTrue(viewModel.keymap!.layers.flatMap(\.bindings).allSatisfy { $0.name == nil })
     }
 
     @MainActor

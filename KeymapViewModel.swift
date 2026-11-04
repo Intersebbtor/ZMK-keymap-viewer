@@ -100,8 +100,8 @@ class KeymapViewModel: ObservableObject {
     
     // MARK: - Keymap from the keyboard
 
-    /// Shows the keymap read from the keyboard, with aliases and missing
-    /// layer names from the file. nil goes back to the file.
+    /// Shows the keymap read from the keyboard, with missing layer names
+    /// from the file. nil goes back to the file.
     func applyKeyboardSnapshot(_ snapshot: StudioSnapshot?) {
         let switchesSource = (snapshot == nil) != (keyboardSnapshot == nil)
         keyboardSnapshot = snapshot
@@ -114,7 +114,6 @@ class KeymapViewModel: ObservableObject {
         if let snapshot = keyboardSnapshot,
            let fromKeyboard = StudioKeymapConverter.keymap(
                from: snapshot,
-               aliases: aliases(matching: snapshot),
                fallbackLayerNames: fileKeymap?.layers.map(\.name) ?? []
            ) {
             shown = fromKeyboard
@@ -150,13 +149,13 @@ class KeymapViewModel: ObservableObject {
         updateDisplayedKeymap(resetSelection: false)
     }
 
-    /// A name given in the app wins over an alias comment in the file
+    /// Names given with a right-click, on every key with the same label
     private func applyingKeyNames(_ layer: KeymapLayer) -> KeymapLayer {
         KeymapLayer(
             name: layer.name,
             bindings: layer.bindings.map { binding in
                 guard let name = keyNames[binding.displayText] else { return binding }
-                return KeyBinding(displayText: binding.displayText, rawCode: binding.rawCode, alias: name, row: binding.row, column: binding.column)
+                return KeyBinding(displayText: binding.displayText, rawCode: binding.rawCode, name: name, row: binding.row, column: binding.column)
             },
             rowCount: layer.rowCount,
             columnCount: layer.columnCount
@@ -167,17 +166,6 @@ class KeymapViewModel: ObservableObject {
     func refreshLabels() {
         updateDisplayedKeymap(resetSelection: false)
         reloadCurrentKeymap()
-    }
-
-    /// Aliases of the file's layers whose key count matches the keyboard's
-    private func aliases(matching snapshot: StudioSnapshot) -> [[String?]] {
-        guard let file = fileKeymap else { return [] }
-        return snapshot.layers.indices.map { index in
-            guard let layer = file.layers[safe: index], layer.bindings.count == snapshot.layers[index].bindings.count else {
-                return []
-            }
-            return layer.bindings.map(\.alias)
-        }
     }
 
     // MARK: - Layer selection

@@ -115,7 +115,7 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 ### Keymap straight from the keyboard
 
-With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is only needed for keyboards without Studio (it can also carry [names](#-key-names) and layer names).
+With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is only needed for keyboards without Studio.
 
 ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks you to press it and listens: the keymap loads by itself as soon as the keyboard is unlocked. The app keeps the keymap it read last, so after that it shows up right away, even when the keyboard restarts locked (*From … · saved*). The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
 
@@ -127,15 +127,6 @@ Keys that type a character show that character in your current macOS keyboard la
 
 Shortcuts and macros type nothing, so they show their keys (`⇧+⌘+4`). **Right-click a key → Name This Key…** to give it a name you recognize. The name shows on every key with the same binding, whether the keymap comes from the keyboard or from a file.
 
-**Names in your zmk-config:** if you'd rather keep names with your keymap (versioned, on every Mac), put a comment right after the binding and load the file. Names given with a right-click win.
-
-```c
-&kp LS(LG(N4)) /* =Screenshot */   // Shows "Screenshot"
-&kp LC(C) /* =Copy */                // Shows "Copy"
-```
-
-These comments never reach the keyboard (the firmware build drops them), so the app can only read them from the file.
-
 ---
 
 ## 🛠️ How It Works
@@ -143,7 +134,7 @@ These comments never reach the keyboard (the firmware build drops them), so the 
 The app parses your `.keymap` file and extracts:
 - All layers defined in the `keymap {}` block
 - Bindings like `&kp`, `&lt`, `&mt`, `&trans`, `&bt`, and custom behaviors
-- Layer names from comments
+- Layer names from `label` or `display-name`
 
 For the live layer it listens for the Raw HID reports of [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) (usage page `0xFF60`): a layer mask on every layer change and a key position on every press and release. The key position is the binding's index in the keymap, so highlighting needs no extra layout config.
 

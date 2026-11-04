@@ -9,7 +9,7 @@ struct PDFExportConfig {
     let layersPerPage: Int = 6  // 2 columns × 3 rows
     let pageMargin: CGFloat = 40
     let layerSpacing: CGFloat = 20
-    let showRawBindings: Bool = true  // Show raw binding below alias
+    let showRawBindings: Bool = true  // Show raw binding below a name
 }
 
 // MARK: - Printable Key View (for PDF)
@@ -33,8 +33,8 @@ struct PrintableKeyView: View {
         return text
     }
     
-    private var hasAlias: Bool {
-        binding.alias != nil
+    private var hasName: Bool {
+        binding.name != nil
     }
     
     var body: some View {
@@ -49,7 +49,7 @@ struct PrintableKeyView: View {
             
             // Key content
             VStack(spacing: 1) {
-                // Main label (alias or display text)
+                // Main label (name or display text)
                 Text(displayLabel)
                     .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                     .foregroundColor(textColor)
@@ -57,8 +57,8 @@ struct PrintableKeyView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.5)
                 
-                // Show raw binding below alias if enabled
-                if showRawBinding && hasAlias {
+                // Show raw binding below a name if enabled
+                if showRawBinding && hasName {
                     Text(binding.displayText)
                         .font(.system(size: 6, weight: .regular, design: .monospaced))
                         .foregroundColor(textColor.opacity(0.6))

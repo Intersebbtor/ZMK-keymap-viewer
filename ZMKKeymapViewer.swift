@@ -234,7 +234,7 @@ class AppState: ObservableObject {
     }
 
     /// Reads the keymap from the connected keyboard (ZMK Studio RPC). The
-    /// file stays the fallback and provides aliases.
+    /// file stays the fallback.
     func refreshKeyboardKeymap() {
         guard readKeymapFromKeyboard, liveLayerMonitor.connectedDeviceName != nil,
               keyboardKeymapStatus != .loading else { return }

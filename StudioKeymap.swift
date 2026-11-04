@@ -5,9 +5,8 @@ import Foundation
 /// KeymapParser labels it exactly like a binding from a .keymap file.
 enum StudioKeymapConverter {
 
-    /// `aliases` and `fallbackLayerNames` come from the keymap file, by
-    /// layer index and key position
-    static func keymap(from snapshot: StudioSnapshot, aliases: [[String?]] = [], fallbackLayerNames: [String] = []) -> Keymap? {
+    /// `fallbackLayerNames` come from the keymap file, by layer index
+    static func keymap(from snapshot: StudioSnapshot, fallbackLayerNames: [String] = []) -> Keymap? {
         guard let firstLayer = snapshot.layers.first, !firstLayer.bindings.isEmpty else { return nil }
 
         let keyCount = firstLayer.bindings.count
@@ -15,8 +14,7 @@ enum StudioKeymapConverter {
 
         let layers = snapshot.layers.enumerated().map { index, layer -> KeymapLayer in
             let codes = layer.bindings.map { bindingCode($0, behavior: snapshot.behaviors[UInt32(bitPattern: $0.behaviorID)]) }
-            let layerAliases = aliases.indices.contains(index) ? aliases[index] : []
-            let source = sourceLines(codes: codes, aliases: layerAliases, rows: rows)
+            let source = sourceLines(codes: codes, rows: rows)
             return KeymapLayer(
                 name: !layer.name.isEmpty ? layer.name : fallbackLayerNames[safe: index] ?? "Layer \(index)",
                 bindings: KeymapParser.parseBindings(from: source),
@@ -35,15 +33,11 @@ enum StudioKeymapConverter {
     }
 
     /// One source line per row, so parseBindings keeps the rows
-    private static func sourceLines(codes: [String], aliases: [String?], rows: [Int]) -> String {
+    private static func sourceLines(codes: [String], rows: [Int]) -> String {
         var lines: [String] = []
         var index = 0
         for length in rows {
-            let line = (index..<min(index + length, codes.count)).map { position -> String in
-                guard aliases.indices.contains(position), let alias = aliases[position] else { return codes[position] }
-                return "\(codes[position]) /* =\(alias) */"
-            }
-            lines.append(line.joined(separator: " "))
+            lines.append(codes[index..<min(index + length, codes.count)].joined(separator: " "))
             index += length
         }
         return lines.joined(separator: "\n")

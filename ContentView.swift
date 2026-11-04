@@ -687,7 +687,7 @@ struct ContentView: View {
     /// Naming happens inside the popover: a separate dialog would take the
     /// focus and close it
     private func askForKeyName(_ binding: KeyBinding) {
-        keyNameText = viewModel.keyName(for: binding) ?? binding.alias ?? ""
+        keyNameText = viewModel.keyName(for: binding) ?? ""
         appState.keyBeingNamed = binding
         DispatchQueue.main.async {
             isKeyNameFocused = true
@@ -861,7 +861,7 @@ struct ContentView: View {
                     Toggle("Read the keymap from the keyboard (ZMK Studio)", isOn: $appState.readKeymapFromKeyboard)
                         .font(.caption2)
 
-                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules. Reading the keymap also needs ZMK Studio; the file then only adds aliases.")
+                    Text("Needs the zmk-raw-hid and zmk-keypeek-layer-notifier firmware modules. Reading the keymap also needs ZMK Studio; otherwise the app uses the file.")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
@@ -1092,11 +1092,11 @@ struct KeyView: View {
     @State private var isHovered = false
     @State private var showTooltip = false
     
-    /// The text to display on the key - alias if present, otherwise parsed display text
+    /// The text to display on the key - its name if present, otherwise parsed display text
     private var displayLabel: String {
         let text = binding.effectiveDisplayText
-        // Wrap long aliases after ~8 chars for better fit
-        if hasAlias && text.count > 8 {
+        // Wrap long names after ~8 chars for better fit
+        if hasName && text.count > 8 {
             // Find a good break point (space, or just split at 8)
             if let spaceIndex = text.firstIndex(of: " "), text.distance(from: text.startIndex, to: spaceIndex) <= 10 {
                 var result = text
@@ -1107,9 +1107,9 @@ struct KeyView: View {
         return text
     }
     
-    /// Whether this key has a user-defined alias
-    private var hasAlias: Bool {
-        binding.alias != nil
+    /// Whether this key was given a name
+    private var hasName: Bool {
+        binding.name != nil
     }
     
     var body: some View {
@@ -1124,7 +1124,7 @@ struct KeyView: View {
                     .fill(Color.accentColor.opacity(0.55))
             }
 
-            // Key border - highlight aliased keys with a subtle accent
+            // Key border - highlight hovered and pressed keys
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(borderColor, lineWidth: isHovered || isPressed ? 2 : 1)
             
@@ -1181,7 +1181,7 @@ struct KeyView: View {
     }
     
     private var keyBackgroundColor: Color {
-        // Use displayText (not alias) for color logic so colors stay consistent
+        // Use displayText (not the name) for color logic so colors stay consistent
         if binding.displayText == "▽" {
             return Color.gray.opacity(0.1)
         } else if binding.displayText == "✕" {
