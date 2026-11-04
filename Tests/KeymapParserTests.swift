@@ -609,4 +609,33 @@ class KeymapParserTests: XCTestCase {
         XCTAssertEqual(result?.behaviors["long_MT"], "LONG_MOD_TAP")
         XCTAssertEqual(result?.behaviors["short_LT"], "SHORT_LAYER_TAP")
     }
+
+    /// Names come from a right-click only; old /* =name */ comments are
+    /// plain comments
+    func testNameCommentsAreIgnored() {
+        let bindings = KeymapParser.parseBindings(from: "&kp LS(LG(N4)) /* =Screenshot */ &kp Q")
+
+        XCTAssertEqual(bindings.map(\.rawCode), ["&kp LS(LG(N4))", "&kp Q"])
+        XCTAssertTrue(bindings.allSatisfy { $0.name == nil })
+    }
+
+    func testNameCommentsInAFileAreIgnored() {
+        let keymapData = """
+        / {
+            keymap {
+                compatible = "zmk,keymap";
+                base {
+                    bindings = <
+                        &kp LC(C) /* =Copy */ &kp Q
+                    >;
+                };
+            };
+        };
+        """
+
+        let bindings = KeymapParser.parse(from: keymapData)?.layers.first?.bindings
+
+        XCTAssertEqual(bindings?.map(\.rawCode), ["&kp LC(C)", "&kp Q"])
+        XCTAssertEqual(bindings?.first?.effectiveDisplayText, "⌃+C")
+    }
 }

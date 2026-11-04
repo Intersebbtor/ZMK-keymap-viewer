@@ -29,8 +29,11 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(LayerPacket.decode(report([0xF1, 0x00, 14, 0])), .keyEvent(position: 14, pressed: false))
     }
 
-    func testIgnoresStudioRpcAndUnknownPackets() {
-        XCTAssertNil(LayerPacket.decode(report([0xF2, 0x10, 0xAB])))
+    func testDecodesStudioChunk() {
+        XCTAssertEqual(LayerPacket.decode(report([0xF2, 0x03, 0xAB, 0x08, 0x01])), .studioChunk([0xAB, 0x08, 0x01]))
+    }
+
+    func testIgnoresUnknownPackets() {
         XCTAssertNil(LayerPacket.decode(report([0x00])))
     }
 
@@ -119,12 +122,16 @@ class LiveLayerTests: XCTestCase {
         XCTAssertEqual(MenuBarSymbol.forLayer(31, showLayer: true), .splitKeyboard(layer: 31))
     }
 
-    func testMenuBarShowsKeyboardWithoutLiveLayer() {
-        XCTAssertEqual(MenuBarSymbol.forLayer(nil, showLayer: true), .keyboard)
+    func testMenuBarKeepsSplitKeyboardWithoutLiveLayer() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(nil, showLayer: true), .splitKeyboard(layer: nil))
     }
 
-    func testMenuBarShowsKeyboardWhenDisabled() {
-        XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: false), .keyboard)
+    func testMenuBarHidesNumberWhenDisabled() {
+        XCTAssertEqual(MenuBarSymbol.forLayer(3, showLayer: false), .splitKeyboard(layer: nil))
+    }
+
+    func testIconKeepsItsWidthWithoutNumber() {
+        XCTAssertEqual(SplitKeyboardIcon.image(layer: nil).size, SplitKeyboardIcon.image(layer: 4).size)
     }
 
     func testSplitKeyboardIconIsTemplate() {

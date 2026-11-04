@@ -1,10 +1,10 @@
 # ZMK Keymap Viewer
 
-A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
+A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key. It reads the keymap straight from your keyboard over ZMK Studio, or from your `.keymap` file.
 
 With two small firmware modules it follows your keyboard live: it shows the layer you are on and lights up the keys you press, in a floating HUD that stays out of your way.
 
-<img width="746" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
+<img width="700" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
@@ -21,7 +21,9 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 - 📡 [**Live layer**](#-live-layer) — Follows the layer you're on, over USB or Bluetooth
 - ✨ [**Key highlighting**](#-live-layer) — Keys light up in the HUD while you hold them
 - 🔢 **Layer in the menu bar** — The menu bar icon shows the active layer number
-- 📝 [**Alias support**](#-alias-comments) — Add `/* =€ */` comments to show custom labels
+- ⌨️ [**Keymap from the keyboard**](#keymap-straight-from-the-keyboard) — Reads the keymap over ZMK Studio, no file needed
+- 🔤 [**Typed characters**](#-key-names) — `⌥⇧2` shows as `€`, in your macOS keyboard layout
+- 📝 [**Key names**](#-key-names) — Right-click a key to name shortcuts and macros
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
 - 🔄 **Auto-update** — Checks for updates and downloads them in-app
@@ -45,10 +47,15 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 ## 🚀 Quick Start
 
-1. Click the ⌨️ icon in your menu bar
-2. Paste the path to your `.keymap` file and click **Load**
-3. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
-4. Press `Cmd+Shift+K` to toggle HUD mode
+1. On the first start, the setup window opens. It reads your keymap [from the keyboard](#keymap-straight-from-the-keyboard): press `&studio_unlock` when asked, the app picks it up by itself. Without ZMK Studio, click **Choose File…** for your `.keymap` file or drop it on the window. **Set up my firmware…** walks you through the [firmware changes](#-live-layer).
+2. From then on the keymap lives in the menu bar: click the keyboard icon
+3. Right-click a key to [name it](#-key-names), e.g. `⇧+⌘+4` → *Screenshot*
+4. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
+5. Press `Cmd+Shift+K` to toggle HUD mode
+
+Another keyboard or config later? Settings → Live Layer → **Set Up a Keyboard…** opens the setup again.
+
+<img width="700" alt="The setup window waiting for &studio_unlock" src="assets/setup_screenshot.png" />
 
 ---
 
@@ -80,6 +87,10 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 **Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
 
+The app walks you through it: **Set up my firmware…** in the setup window checks your zmk-config and ticks off what's already done. For `west.yml` and `build.yaml` it shows the change as *now* and *after* and makes it when you click **Make This Change**: it only adds lines and values, keeps your comments and everything else (nice!view, artifact names, …), and leaves files it doesn't fully understand to you, with examples to copy. Placing `&studio_unlock`, building and flashing stay with you.
+
+<img width="700" alt="Firmware setup showing a build.yaml change before and after" src="assets/firmware_setup_screenshot.png" />
+
 1. Add the modules to `config/west.yml`:
 
    ```yaml
@@ -110,18 +121,19 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 3. Flash the central half, then **remove the keyboard in System Settings → Bluetooth and pair it again**. macOS caches the keyboard's services and only sees the new Raw HID interface after re-pairing.
 
-> The live layer is the layer *number*. The names come from your `.keymap` file, so keep the file in sync if you reorder or add layers with ZMK Studio.
+### Keymap straight from the keyboard
+
+With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is only needed for keyboards without Studio.
+
+ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks you to press it and listens: the keymap loads by itself as soon as the keyboard is unlocked. The app keeps the keymap it read last, so after that it shows up right away, even when the keyboard restarts locked (*From … · saved*). The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
 
 ---
 
-## 📝 Alias Comments
+## 📝 Key Names
 
-Add custom labels to your bindings using comments:
+Keys that type a character show that character in your current macOS keyboard layout: `&kp LS(LA(N2))` shows **€** in the ABC layout, `&kp RA(S)` shows **ß**, and with the German layout the `SEMI` key shows **Ö**. Switching the input source updates the labels.
 
-```c
-&kp LS(LA(N2)) /* =€ */     // Shows "€" instead of the binding
-&kp LC(C) /* =Copy */          // Shows "Copy"
-```
+Shortcuts and macros type nothing, so they show their keys (`⇧+⌘+4`). **Right-click a key → Name This Key…** to give it a name you recognize. The name shows on every key with the same binding, whether the keymap comes from the keyboard or from a file.
 
 ---
 
@@ -130,7 +142,7 @@ Add custom labels to your bindings using comments:
 The app parses your `.keymap` file and extracts:
 - All layers defined in the `keymap {}` block
 - Bindings like `&kp`, `&lt`, `&mt`, `&trans`, `&bt`, and custom behaviors
-- Layer names from comments
+- Layer names from `label` or `display-name`
 
 For the live layer it listens for the Raw HID reports of [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) (usage page `0xFF60`): a layer mask on every layer change and a key position on every press and release. The key position is the binding's index in the keymap, so highlighting needs no extra layout config.
 
