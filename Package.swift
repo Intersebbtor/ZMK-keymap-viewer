@@ -34,7 +34,9 @@ let package = Package(
                 "StudioKeymap.swift",
                 "KeyCharacters.swift",
                 "FirmwareSetup.swift",
-                "FirmwareSetupView.swift"
+                "FirmwareEdits.swift",
+                "FirmwareSetupView.swift",
+                "SetupView.swift"
             ]
         ),
         .testTarget(

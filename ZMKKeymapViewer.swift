@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Carbon
+import UniformTypeIdentifiers
 
 let appVersion = "1.6.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
@@ -70,14 +71,11 @@ class AppState: ObservableObject {
         didSet { if followLiveLayer { syncToLiveLayer() } }
     }
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
-    /// The setup guide's last step, shown once with the first keymap
-    @AppStorage("hasSeenKeyNamesGuide") var hasSeenKeyNamesGuide = false
     /// Opens keymap and config files, e.g. "code"; empty uses the app macOS
     /// picks for the file type (Xcode for .yml, often)
     @AppStorage("editorCommand") var editorCommand = ""
     /// The zmk-config the firmware setup checks
     @AppStorage("zmkConfigPath") var zmkConfigPath = ""
-    @Published var isFirmwareSetupVisible = false
     /// The key whose name is being typed in the popover
     @Published var keyBeingNamed: KeyBinding? {
         didSet {
@@ -171,6 +169,12 @@ class AppState: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.setupHUDPanel(with: self.keymapViewModel)
+        }
+        // Nothing to show yet (no file, no keymap read before): the setup
+        // opens by itself
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self, self.keymapViewModel.keymap == nil, self.recentKeymaps.isEmpty else { return }
+            self.showSetup()
         }
     }
     
@@ -270,6 +274,80 @@ class AppState: ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Setup window
+
+    /// The setup lives in a window of its own; everyday use in the menu bar
+    @Published var setupPage = SetupPage.start
+    private var setupWindow: NSWindow?
+
+    func showSetup(_ page: SetupPage = .start) {
+        setupPage = page
+        if setupWindow == nil {
+            let view = SetupView()
+                .environmentObject(self)
+                .environmentObject(keymapViewModel)
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 700, height: 640),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                backing: .buffered, defer: false
+            )
+            window.title = "Set Up ZMK Keymap Viewer"
+            window.contentView = NSHostingView(rootView: view)
+            window.isReleasedWhenClosed = false
+            window.center()
+            // Closed on any page, it starts over next time; the firmware
+            // page also stops reading the zmk-config then
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+                self?.setupPage = .start
+            }
+            setupWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        setupWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    func showFirmwareSetup() {
+        showSetup(.firmware)
+    }
+
+    func closeSetup() {
+        setupWindow?.close()
+    }
+
+    // MARK: - Keymap files
+
+    func loadKeymapFile(_ path: String) {
+        keymapViewModel.loadKeymap(from: path)
+        addRecentKeymap(path)
+    }
+
+    func chooseKeymapFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose your keymap"
+        panel.message = "Usually config/<keyboard>.keymap in your zmk-config"
+        panel.allowedContentTypes = [UTType(filenameExtension: "keymap") ?? .data]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if let current = keymapViewModel.currentFilePath {
+            panel.directoryURL = URL(fileURLWithPath: current).deletingLastPathComponent()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        loadKeymapFile(url.path)
+    }
+
+    /// For .onDrop: a dropped .keymap file loads
+    func loadDroppedKeymap(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { [weak self] url, _ in
+            guard let url = url, url.pathExtension == "keymap" else { return }
+            DispatchQueue.main.async {
+                self?.loadKeymapFile(url.path)
+            }
+        }
+        return true
     }
 
     // MARK: - Editor

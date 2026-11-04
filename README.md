@@ -47,11 +47,13 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 ## 🚀 Quick Start
 
-1. Click the keyboard icon in your menu bar
-2. The setup guide reads your keymap [from the keyboard](#keymap-straight-from-the-keyboard): press `&studio_unlock` when asked, the app picks it up by itself. Without ZMK Studio, click **Choose File…** for your `.keymap` file or drop it on the popover.
+1. On the first start, the setup window opens. It reads your keymap [from the keyboard](#keymap-straight-from-the-keyboard): press `&studio_unlock` when asked, the app picks it up by itself. Without ZMK Studio, click **Choose File…** for your `.keymap` file or drop it on the window. **Set up my firmware…** walks you through the [firmware changes](#-live-layer).
+2. From then on the keymap lives in the menu bar: click the keyboard icon
 3. Right-click a key to [name it](#-key-names), e.g. `⇧+⌘+4` → *Screenshot*
 4. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
 5. Press `Cmd+Shift+K` to toggle HUD mode
+
+Another keyboard or config later? Settings → Live Layer → **Set Up a Keyboard…** opens the setup again.
 
 ---
 
@@ -83,7 +85,7 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 **Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
 
-The app walks you through it: **Set up my firmware…** in the setup guide (or Settings → Live Layer → Firmware Setup…) shows each step with examples to copy, fitted to your keyboard. Choose your zmk-config folder and it ticks off what's already done. It only reads your files.
+The app walks you through it: **Set up my firmware…** in the setup window checks your zmk-config and ticks off what's already done. For `west.yml` and `build.yaml` it shows the change as *now* and *after* and makes it when you click **Make This Change**: it only adds lines and values, keeps your comments and everything else (nice!view, artifact names, …), and leaves files it doesn't fully understand to you, with examples to copy. Placing `&studio_unlock`, building and flashing stay with you.
 
 1. Add the modules to `config/west.yml`:
 

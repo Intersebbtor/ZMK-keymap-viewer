@@ -1,18 +1,34 @@
 import SwiftUI
 
-/// Walks through the firmware changes in the user's zmk-config, step by
-/// step with examples to copy. Once a folder is chosen, the app checks the
-/// files every two seconds and ticks off what's done; it never edits them.
+/// Walks through the firmware changes in the user's zmk-config, as a page
+/// of the setup window, which stays open next to the editor. The app checks the files
+/// every two seconds and ticks off what's done. Changes to west.yml and
+/// build.yaml are shown as now and after, and only written when the user
+/// agrees; the unlock key, building and flashing are the user's steps.
 struct FirmwareSetupView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var viewModel: KeymapViewModel
+    let onClose: () -> Void
+
     @State private var setup = FirmwareSetup()
+    @State private var westProposal = ConfigEditProposal.notNeeded
+    @State private var buildProposal = ConfigEditProposal.notNeeded
+    /// The include entry the user picked as the central half
+    @State private var centralChoice: Int?
+    /// Steps the user wants to do by hand, by file
+    @State private var doingByHand: Set<String> = []
+    @State private var notice: (text: String, isError: Bool)?
     @State private var copiedCode: String?
 
     private let recheck = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     private var configFolder: URL? {
         appState.zmkConfigPath.isEmpty ? nil : URL(fileURLWithPath: appState.zmkConfigPath)
+    }
+
+    private var isGitRepository: Bool {
+        guard let folder = configFolder else { return false }
+        return FileManager.default.fileExists(atPath: folder.appendingPathComponent(".git").path)
     }
 
     /// The keyboard answers over ZMK Studio, so the new firmware is on it
@@ -23,77 +39,64 @@ struct FirmwareSetupView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Set up your firmware")
-                    .font(.headline.bold())
-                Spacer()
-                Button(action: { appState.isFirmwareSetupVisible = false }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
-
-            Divider()
-
             ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("For the live layer and reading the keymap, your zmk-config needs two modules and ZMK Studio. Choose its folder and the app ticks off what's done.")
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Set up your firmware")
+                            .font(.title2.bold())
+                        Text("For the live layer and reading the keymap, your zmk-config needs two modules and ZMK Studio. The app checks your files, shows each change before it makes it, and leaves building and flashing to you.")
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     folderRow
 
-                    step(
-                        1, done: configFolder != nil && setup.hasModules,
-                        title: "Add the modules", file: "config/west.yml"
-                    ) {
-                        Text("Add these two lines under remotes:")
-                        codeBlock("""
-                            - name: zzeneg
-                              url-base: https://github.com/zzeneg
-                            - name: srwi
-                              url-base: https://github.com/srwi
-                        """)
-                        Text("and these under projects:")
-                        codeBlock("""
-                            - name: zmk-raw-hid
-                              remote: zzeneg
-                              revision: main
-                            - name: zmk-keypeek-layer-notifier
-                              remote: srwi
-                              revision: master
-                        """)
+                    if let notice = notice {
+                        Label(notice.text, systemImage: notice.isError ? "exclamationmark.triangle" : "checkmark.circle")
+                            .foregroundColor(notice.isError ? .orange : .green)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    step(
-                        2, done: configFolder != nil && setup.hasRawHID && setup.hasStudio,
-                        title: "Turn on Raw HID and ZMK Studio", file: "build.yaml"
-                    ) {
-                        Text("Make the entry of the central half (\(setup.centralShield)) look like this. Only the central half needs it.")
-                        codeBlock("""
-                          - board: \(setup.board)
-                            shield: \(setup.centralShield) raw_hid_adapter
-                            snippet: studio-rpc-usb-uart
-                            cmake-args: -DCONFIG_ZMK_STUDIO=y
-                        """)
+                    step(1, done: configFolder != nil && setup.hasModules, title: "Add the modules", file: FirmwareEdits.westFile) {
+                        proposalContent(westProposal, file: FirmwareEdits.westFile, what: "the two modules") {
+                            Text("Add these under remotes:")
+                            codeBlock("""
+                                - name: zzeneg
+                                  url-base: https://github.com/zzeneg
+                                - name: srwi
+                                  url-base: https://github.com/srwi
+                            """)
+                            Text("and these under projects:")
+                            codeBlock("""
+                                - name: zmk-raw-hid
+                                  remote: zzeneg
+                                  revision: main
+                                - name: zmk-keypeek-layer-notifier
+                                  remote: srwi
+                                  revision: master
+                            """)
+                        }
                     }
 
-                    step(
-                        3, done: configFolder != nil && setup.hasUnlockKey,
-                        title: "Add a key to unlock ZMK Studio", file: setup.keymapFile
-                    ) {
-                        Text("ZMK Studio stays locked until you press this key. Put it on a key you rarely use, like next to your Bluetooth or reset keys:")
+                    step(2, done: configFolder != nil && setup.hasRawHID && setup.hasStudio, title: "Turn on Raw HID and ZMK Studio", file: FirmwareEdits.buildFile) {
+                        proposalContent(buildProposal, file: FirmwareEdits.buildFile, what: "Raw HID and ZMK Studio for the central half") {
+                            Text("In the entry of the central half, add raw_hid_adapter to its shields and turn on ZMK Studio. Only the central half needs it:")
+                            codeBlock("""
+                              - board: \(setup.board)
+                                shield: \(setup.centralShield) raw_hid_adapter
+                                snippet: studio-rpc-usb-uart
+                                cmake-args: -DCONFIG_ZMK_STUDIO=y
+                            """)
+                        }
+                    }
+
+                    step(3, done: configFolder != nil && setup.hasUnlockKey, title: "Put the unlock key on your keymap", file: setup.keymapFile) {
+                        Text("ZMK Studio stays locked until you press this key. Only you know where it fits: a key you rarely use, like next to your Bluetooth or reset keys.")
                         codeBlock("&studio_unlock")
                     }
 
-                    step(
-                        4, done: keyboardAnswers,
-                        title: "Build, flash and pair again", file: nil
-                    ) {
-                        Text("Commit and push: GitHub Actions builds the firmware. Flash the central half, then remove the keyboard in System Settings → Bluetooth and pair it again. macOS only sees the new connection after that.")
+                    step(4, done: keyboardAnswers, title: "Build, flash and pair again", file: nil) {
+                        Text("Commit and push your zmk-config: GitHub Actions builds the firmware. Flash the central half with it, then remove the keyboard in System Settings → Bluetooth and pair it again. macOS only sees the new connection after that.")
                         if appState.liveDeviceName != nil, appState.keyboardKeymapStatus == .failed {
                             Label("\(appState.liveDeviceName ?? "The keyboard") is connected but ZMK Studio doesn't answer. Check step 2.", systemImage: "exclamationmark.triangle")
                                 .foregroundColor(.orange)
@@ -108,15 +111,30 @@ struct FirmwareSetupView: View {
                         }
                     }
                 }
-                .padding()
+                .padding(24)
             }
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button("Back", action: onClose)
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(12)
         }
+        .frame(minWidth: 560, minHeight: 520)
         .onAppear {
             suggestFolder()
             recheckFiles()
         }
         .onReceive(recheck) { _ in recheckFiles() }
-        .onChange(of: appState.zmkConfigPath) { _ in recheckFiles() }
+        .onChange(of: appState.zmkConfigPath) { _ in
+            centralChoice = nil
+            notice = nil
+            recheckFiles()
+        }
+        .onChange(of: centralChoice) { _ in recheckFiles() }
     }
 
     // MARK: - Folder
@@ -131,11 +149,11 @@ struct FirmwareSetupView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             } else {
-                Text("No zmk-config chosen")
+                Text("Choose your zmk-config, the folder with build.yaml")
                     .foregroundColor(.secondary)
             }
             Spacer()
-            Button(configFolder == nil ? "Choose zmk-config…" : "Change…") { chooseFolder() }
+            Button(configFolder == nil ? "Choose…" : "Change…") { chooseFolder() }
                 .controlSize(.small)
         }
         .padding(10)
@@ -157,7 +175,6 @@ struct FirmwareSetupView: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = configFolder
-        NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         appState.zmkConfigPath = FirmwareSetup.configRoot(for: url).path
     }
@@ -165,9 +182,108 @@ struct FirmwareSetupView: View {
     private func recheckFiles() {
         guard let folder = configFolder else {
             setup = FirmwareSetup()
+            westProposal = .notNeeded
+            buildProposal = .notNeeded
             return
         }
         setup = FirmwareSetup.check(folder)
+        westProposal = FirmwareEdits.addModules(toWest: read(FirmwareEdits.westFile, in: folder))
+        buildProposal = FirmwareEdits.enableRawHIDAndStudio(inBuild: read(FirmwareEdits.buildFile, in: folder), central: centralChoice)
+    }
+
+    private func read(_ file: String, in folder: URL) -> String {
+        (try? String(contentsOf: folder.appendingPathComponent(file), encoding: .utf8)) ?? ""
+    }
+
+    // MARK: - Changes
+
+    /// The proposed change with now and after, or the manual way when the
+    /// app can't change the file safely or the user prefers it
+    @ViewBuilder
+    private func proposalContent<Manual: View>(
+        _ proposal: ConfigEditProposal, file: String, what: String,
+        @ViewBuilder manual: () -> Manual
+    ) -> some View {
+        switch proposal {
+        case let .edit(edit) where configFolder != nil && !doingByHand.contains(file):
+            Text("The app can add \(what) to \(file) for you:")
+            ForEach(Array(EditExcerpt.excerpts(of: edit).enumerated()), id: \.offset) { _, excerpt in
+                excerptView(excerpt)
+            }
+            HStack {
+                Button("Make This Change") { apply(edit) }
+                    .buttonStyle(.borderedProminent)
+                Button("I'll Do It Myself") { doingByHand.insert(file) }
+                Spacer()
+            }
+        case let .chooseCentral(entries) where configFolder != nil && !doingByHand.contains(file):
+            Text("Which entry builds your central half? It's the half that connects to the computer; with a dongle, it's the dongle.")
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+                    Button {
+                        centralChoice = index
+                    } label: {
+                        Label(entry, systemImage: centralChoice == index ? "largecircle.fill.circle" : "circle")
+                            .font(.system(size: 12, design: .monospaced))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Button("I'll Do It Myself") { doingByHand.insert(file) }
+        case let .manual(reason) where configFolder != nil:
+            Label(reason, systemImage: "hand.raised")
+                .foregroundColor(.secondary)
+            manual()
+        default:
+            manual()
+        }
+    }
+
+    private func apply(_ edit: ConfigEdit) {
+        guard let folder = configFolder else { return }
+        do {
+            try FirmwareEdits.apply(edit, in: folder)
+            let undo = isGitRepository ? " To undo it: git checkout -- \(edit.file)" : ""
+            notice = ("Changed \(edit.file).\(undo)", false)
+        } catch FirmwareEdits.ApplyError.fileChanged {
+            notice = ("\(edit.file) changed meanwhile, so nothing was written. Check the change again.", true)
+        } catch {
+            notice = ("Couldn't write \(edit.file): \(error.localizedDescription)", true)
+        }
+        recheckFiles()
+    }
+
+    private func excerptView(_ excerpt: EditExcerpt) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            excerptLines("Now", excerpt.before, highlight: Color.red)
+            excerptLines("After the change", excerpt.after, highlight: Color.green)
+        }
+    }
+
+    private func excerptLines(_ title: String, _ lines: [EditExcerpt.Line], highlight: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                    HStack(spacing: 8) {
+                        Text("\(line.number)")
+                            .foregroundColor(.secondary)
+                            .frame(width: 28, alignment: .trailing)
+                        Text(line.text.isEmpty ? " " : line.text)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .padding(.vertical, 1)
+                    .background(line.changed ? highlight.opacity(0.18) : Color.clear)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .textSelection(.enabled)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+        }
     }
 
     // MARK: - Steps
@@ -210,7 +326,7 @@ struct FirmwareSetupView: View {
         }
     }
 
-    /// The step's file; opens in the default editor once the zmk-config is known
+    /// The step's file; opens in the editor once the zmk-config is known
     @ViewBuilder
     private func fileLabel(_ file: String) -> some View {
         let label = Text(file).font(.system(size: 11, design: .monospaced))
