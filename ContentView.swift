@@ -143,7 +143,6 @@ struct ContentView: View {
     @State private var isRecordingShortcut = false
     @State private var isDropTargeted = false
     @State private var keyNameText = ""
-    @State private var showsNameSyntax = false
     @FocusState private var isKeyNameFocused: Bool
 
     /// No keymap yet, or its last step: the setup guide takes the whole popover
@@ -288,18 +287,12 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
-        .overlay {
-            if showsNameSyntax {
-                nameSyntaxCard
-            }
-        }
         // Reopening the popover starts on the keymap, not on the settings
         .background(WindowHideObserver {
             print("[ContentView] Popover hidden")
             appState.isSettingsVisible = false
             appState.keyBeingNamed = nil
             appState.holdsShownLayer = false
-            showsNameSyntax = false
         })
     }
     
@@ -332,7 +325,7 @@ struct ContentView: View {
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 4) { // Reduce internal spacing
             HStack {
-                Text("Keymap File")
+                Text("Keymap")
                     .font(.subheadline.bold()) // A bit smaller to save space
 
                 Spacer()
@@ -391,17 +384,6 @@ struct ContentView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HStack(spacing: 6) {
-                    Text("You may choose your keymap file if you want to set your key and macro names there.")
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Button("Show me how") { showsNameSyntax = true }
-                        .buttonStyle(.link)
-                }
-                .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             
             // Status row
@@ -573,7 +555,7 @@ struct ContentView: View {
                     keyboardSetupContent
                 }
                 setupCard(title: "From a file", systemImage: "doc.text") {
-                    Text("Load the .keymap file from your zmk-config. The app follows it when you change it.")
+                    Text("Can't or don't want to unlock ZMK Studio? Load the .keymap file from your zmk-config instead. The app follows your edits.")
                     Button {
                         chooseKeymapFile()
                     } label: {
@@ -654,22 +636,9 @@ struct ContentView: View {
     }
 
     /// Last step of the setup guide: what the labels show and how to name
-    /// shortcuts and macros. The way that fits where the keymap came from
-    /// comes first.
+    /// shortcuts and macros
     private var keyNamesGuideView: some View {
-        let fromKeyboard = viewModel.keyboardKeymapName != nil
-        let rightClick = guideWay(
-            systemImage: "cursorarrow.click.2",
-            title: "Right-click a key",
-            text: "Choose Name This Key… and type a name. It shows on every key that does the same."
-        )
-        let fileComment = guideWay(
-            systemImage: "doc.text",
-            title: "Or in your .keymap file",
-            text: "Put a comment with = right after the binding:",
-            code: "&kp LS(LG(N4)) /* =Screenshot */"
-        )
-        return VStack(spacing: 18) {
+        VStack(spacing: 18) {
             VStack(spacing: 6) {
                 Image(systemName: "character.cursor.ibeam")
                     .font(.system(size: 32))
@@ -690,16 +659,8 @@ struct ContentView: View {
                 guideKey("Screenshot", highlighted: true)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                if fromKeyboard {
-                    rightClick
-                    fileComment
-                } else {
-                    fileComment.replacingTitle("In your .keymap file")
-                    rightClick.replacingTitle("Or right-click a key")
-                }
-            }
-            .frame(maxWidth: 480)
+            Label("Right-click a key and choose Name This Key…", systemImage: "cursorarrow.click.2")
+                .font(.callout)
 
             Button("Show My Keymap") {
                 appState.hasSeenKeyNamesGuide = true
@@ -721,10 +682,6 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(highlighted ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: highlighted ? 2 : 1)
             )
-    }
-
-    private func guideWay(systemImage: String, title: String, text: String, code: String? = nil) -> GuideWay {
-        GuideWay(systemImage: systemImage, title: title, text: text, code: code)
     }
 
     /// Naming happens inside the popover: a separate dialog would take the
@@ -770,52 +727,6 @@ struct ContentView: View {
             }
             .padding(20)
             .frame(width: 340)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
-            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
-        }
-    }
-
-    /// How names are written in a .keymap file, from the header's "Show me how"
-    private var nameSyntaxCard: some View {
-        ZStack {
-            Color.black.opacity(0.25)
-                .onTapGesture { showsNameSyntax = false }
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Names in your .keymap file")
-                    .font(.headline)
-                Text("Put a comment with = right after a binding. The key shows the name instead of its keys:")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("&kp LS(LG(N4)) /* =Screenshot */")
-                    Text("&kp LC(LA(LG(C))) /* =Finder */")
-                    Text("&my_macro /* =Ä */")
-                }
-                .font(.system(size: 12, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
-                Text("The app follows your edits to the file. A name given with a right-click wins over the file.")
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Spacer()
-                    Button("Done") { showsNameSyntax = false }
-                        .keyboardShortcut(.cancelAction)
-                    Button("Choose File…") {
-                        showsNameSyntax = false
-                        chooseKeymapFile()
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding(20)
-            .frame(width: 400)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color(NSColor.windowBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.15)))
             .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
@@ -1384,43 +1295,5 @@ class ShortcutRecordingView: NSView {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
-    }
-}
-
-/// One way to name keys in the setup guide
-struct GuideWay: View {
-    let systemImage: String
-    var title: String
-    let text: String
-    var code: String?
-
-    func replacingTitle(_ title: String) -> GuideWay {
-        var way = self
-        way.title = title
-        return way
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundColor(.accentColor)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .bold()
-                Text(text)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let code = code {
-                    Text(code)
-                        .font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color(NSColor.controlBackgroundColor)))
-                }
-            }
-        }
     }
 }

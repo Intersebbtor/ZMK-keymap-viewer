@@ -23,7 +23,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 - 🔢 **Layer in the menu bar** — The menu bar icon shows the active layer number
 - ⌨️ [**Keymap from the keyboard**](#keymap-straight-from-the-keyboard) — Reads the keymap over ZMK Studio, no file needed
 - 🔤 [**Typed characters**](#-key-names) — `⌥⇧2` shows as `€`, in your macOS keyboard layout
-- 📝 [**Key names**](#-key-names) — Right-click a key or add `/* =Screenshot */` to name shortcuts and macros
+- 📝 [**Key names**](#-key-names) — Right-click a key to name shortcuts and macros
 - 🔴 **Live reload** — Watches your keymap file for changes
 - 📄 **PDF Export** — Export your layout to PDF
 - 🔄 **Auto-update** — Checks for updates and downloads them in-app
@@ -47,10 +47,11 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 ## 🚀 Quick Start
 
-1. Click the ⌨️ icon in your menu bar
-2. The setup guide shows two ways to your keymap: read it [from the keyboard](#keymap-straight-from-the-keyboard) (press `&studio_unlock` when asked, the app picks it up by itself), or click **Choose File…** for your `.keymap` file. You can also drop the file on the popover.
-3. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
-4. Press `Cmd+Shift+K` to toggle HUD mode
+1. Click the keyboard icon in your menu bar
+2. The setup guide reads your keymap [from the keyboard](#keymap-straight-from-the-keyboard): press `&studio_unlock` when asked, the app picks it up by itself. Without ZMK Studio, click **Choose File…** for your `.keymap` file or drop it on the popover.
+3. Right-click a key to [name it](#-key-names), e.g. `⇧+⌘+4` → *Screenshot*
+4. Click layer tabs to switch views (or let the [live layer](#-live-layer) do it)
+5. Press `Cmd+Shift+K` to toggle HUD mode
 
 ---
 
@@ -114,7 +115,7 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 
 ### Keymap straight from the keyboard
 
-With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is still useful: it adds your [name comments](#-key-names) and layer names, and it is the fallback for keyboards without Studio.
+With ZMK Studio in the firmware (step 2 above), the app reads the keymap from the keyboard itself: layers, bindings and the physical layout, so it always shows what is really on the board, including changes made in ZMK Studio. The `.keymap` file is only needed for keyboards without Studio (it can also carry [names](#-key-names) and layer names).
 
 ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks you to press it and listens: the keymap loads by itself as soon as the keyboard is unlocked. The app keeps the keymap it read last, so after that it shows up right away, even when the keyboard restarts locked (*From … · saved*). The app only reads; it never changes the keymap on the keyboard. Turn it off in Settings → Live Layer.
 
@@ -124,17 +125,16 @@ ZMK Studio stays locked until you press `&studio_unlock`. The popover then asks 
 
 Keys that type a character show that character in your current macOS keyboard layout: `&kp LS(LA(N2))` shows **€** in the ABC layout, `&kp RA(S)` shows **ß**, and with the German layout the `SEMI` key shows **Ö**. Switching the input source updates the labels.
 
-Shortcuts and macros type nothing, so they show their keys (`⇧+⌘+4`). Give them a name you recognize, in one of two ways:
+Shortcuts and macros type nothing, so they show their keys (`⇧+⌘+4`). **Right-click a key → Name This Key…** to give it a name you recognize. The name shows on every key with the same binding, whether the keymap comes from the keyboard or from a file.
 
-- **Right-click a key → Name This Key…** The name shows on every key with the same binding and is kept in the app, so it also works for keymaps read from the keyboard.
-- **A comment in your `.keymap` file**, right after the binding:
+**Names in your zmk-config:** if you'd rather keep names with your keymap (versioned, on every Mac), put a comment right after the binding and load the file. Names given with a right-click win.
 
-  ```c
-  &kp LS(LG(N4)) /* =Screenshot */   // Shows "Screenshot"
-  &kp LC(C) /* =Copy */                // Shows "Copy"
-  ```
+```c
+&kp LS(LG(N4)) /* =Screenshot */   // Shows "Screenshot"
+&kp LC(C) /* =Copy */                // Shows "Copy"
+```
 
-Comments never reach the keyboard (the firmware build drops them), which is why the app can't read them from it. With the file loaded next to a keyboard, its names still show.
+These comments never reach the keyboard (the firmware build drops them), so the app can only read them from the file.
 
 ---
 
