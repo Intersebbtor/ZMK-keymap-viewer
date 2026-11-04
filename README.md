@@ -133,7 +133,7 @@ The app only adds lines and values to your files and keeps your comments and eve
 
 ### 👁️ HUD Mode
 
-<img width="700" alt="Keys lighting up in the HUD while typing" src="assets/hud_highlighting.gif" />
+<img width="700" alt="Keys lighting up in the HUD while typing, with the typing speed in the corner" src="assets/hud_highlighting.gif" />
 
 - **Always-on-top** floating overlay, toggled with `Cmd+Shift+K` (or your own shortcut)
 - **Auto-fades** after inactivity, wakes on hover, on key presses and on layer changes
