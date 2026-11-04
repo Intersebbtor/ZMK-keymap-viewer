@@ -1,10 +1,10 @@
 # ZMK Keymap Viewer
 
-A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key.
+A lightweight macOS menu bar app that displays your ZMK keymap bindings in a visual 2D grid. Perfect for when you're learning a new layer or can't remember where you put that special key. It reads the keymap straight from your keyboard over ZMK Studio, or from your `.keymap` file.
 
 With two small firmware modules it follows your keyboard live: it shows the layer you are on and lights up the keys you press, in a floating HUD that stays out of your way.
 
-<img width="746" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
+<img width="700" alt="ZMK Keymap Viewer" src="assets/keymap_screenshot.png" />
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
@@ -55,6 +55,8 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 
 Another keyboard or config later? Settings → Live Layer → **Set Up a Keyboard…** opens the setup again.
 
+<img width="700" alt="The setup window waiting for &studio_unlock" src="assets/setup_screenshot.png" />
+
 ---
 
 ## 👁️ HUD Mode
@@ -86,6 +88,8 @@ Clicking a layer tab still works; it holds until your next layer change on the k
 **Firmware setup** (in your `zmk-config`, uses the same modules as [KeyPeek](https://github.com/srwi/keypeek)):
 
 The app walks you through it: **Set up my firmware…** in the setup window checks your zmk-config and ticks off what's already done. For `west.yml` and `build.yaml` it shows the change as *now* and *after* and makes it when you click **Make This Change**: it only adds lines and values, keeps your comments and everything else (nice!view, artifact names, …), and leaves files it doesn't fully understand to you, with examples to copy. Placing `&studio_unlock`, building and flashing stay with you.
+
+<img width="700" alt="Firmware setup showing a build.yaml change before and after" src="assets/firmware_setup_screenshot.png" />
 
 1. Add the modules to `config/west.yml`:
 

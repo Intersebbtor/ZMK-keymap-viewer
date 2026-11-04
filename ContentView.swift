@@ -186,7 +186,8 @@ struct ContentView: View {
                     placeholderView
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Spare height goes below the keyboard, not around the tabs
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: appState.isSettingsVisible)
             
             Divider()
@@ -315,9 +316,13 @@ struct ContentView: View {
         let keySpacing: CGFloat = 3
         let thumbExtra: CGFloat = layout.hasThumbCluster ? 20 : 0
         
-        // Header (~100) + Tabs (~40) + Keyboard + Footer (~40)
-        let totalHeight = 100 + 40 + (rowCount * keyHeight) + ((rowCount - 1) * keySpacing) + thumbExtra + 60
-        return max(500, totalHeight)
+        // Header (one line from the keyboard, three with a file) + tabs
+        // (~30 per row of 6) + keyboard + footer
+        let header: CGFloat = viewModel.keyboardKeymapName != nil ? 52 : 100
+        let tabRows = CGFloat(((viewModel.keymap?.layers.count ?? 1) + 5) / 6)
+        let tabs = 16 + tabRows * 26 + (tabRows - 1) * 4
+        let totalHeight = header + tabs + (rowCount * keyHeight) + ((rowCount - 1) * keySpacing) + thumbExtra + 40 + 50
+        return max(320, totalHeight)
     }
     
     private var headerView: some View {
@@ -426,15 +431,6 @@ struct ContentView: View {
         .padding()
     }
 
-    /// The menu bar's split keyboard, at text size
-    private var splitKeyboardIcon: some View {
-        Image(nsImage: SplitKeyboardIcon.image(layer: nil))
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 22)
-    }
-
     /// Where the shown keymap comes from when the keyboard is involved
     @ViewBuilder
     private var keyboardSourceView: some View {
@@ -472,7 +468,7 @@ struct ContentView: View {
                 Button {
                     appState.refreshKeyboardKeymap()
                 } label: {
-                    Label { Text("From \(name) · saved") } icon: { splitKeyboardIcon }
+                    Text("From \(name) · saved")
                 }
                 .buttonStyle(.borderless)
                 .font(.caption)
@@ -483,7 +479,7 @@ struct ContentView: View {
                 Button {
                     appState.refreshKeyboardKeymap()
                 } label: {
-                    Label { Text("From \(name)") } icon: { splitKeyboardIcon }
+                    Text("From \(name)")
                 }
                 .buttonStyle(.borderless)
                 .font(.caption)
@@ -494,40 +490,38 @@ struct ContentView: View {
 
     private var selectedLayerIndex: Int { viewModel.displayedLayerIndex }
 
+    /// As tall as its rows of tabs, so no empty band sits around them
     private var layerTabsView: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 4) {
-                if let keymap = viewModel.keymap {
-                    let layers = Array(keymap.layers.enumerated())
-                    // Split into rows of max 6 layers each
-                    let maxPerRow = 6
-                    let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
-                        Array(layers[start..<min(start + maxPerRow, layers.count)])
-                    }
-                    ForEach(0..<rows.count, id: \.self) { rowIdx in
-                        HStack(spacing: 8) {
-                            ForEach(rows[rowIdx], id: \.1.id) { index, layer in
-                                Button(action: { viewModel.selectLayer(index) }) {
-                                    Text(layer.name)
-                                        .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
-                                        .lineLimit(1)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
-                                        )
-                                        .foregroundColor(selectedLayerIndex == index ? .white : .primary)
-                                }
-                                .buttonStyle(.plain)
+        VStack(spacing: 4) {
+            if let keymap = viewModel.keymap {
+                let layers = Array(keymap.layers.enumerated())
+                // Split into rows of max 6 layers each
+                let maxPerRow = 6
+                let rows = stride(from: 0, to: layers.count, by: maxPerRow).map { start in
+                    Array(layers[start..<min(start + maxPerRow, layers.count)])
+                }
+                ForEach(0..<rows.count, id: \.self) { rowIdx in
+                    HStack(spacing: 8) {
+                        ForEach(rows[rowIdx], id: \.1.id) { index, layer in
+                            Button(action: { viewModel.selectLayer(index) }) {
+                                Text(layer.name)
+                                    .font(.system(size: 11, weight: selectedLayerIndex == index ? .semibold : .regular))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(selectedLayerIndex == index ? Color.accentColor : Color.clear)
+                                    )
+                                    .foregroundColor(selectedLayerIndex == index ? .white : .primary)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
             }
-            .padding(.vertical, 8)
         }
-        .frame(maxHeight: 120) // Limit height, scroll if more layers
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(Color(NSColor.controlBackgroundColor))
     }

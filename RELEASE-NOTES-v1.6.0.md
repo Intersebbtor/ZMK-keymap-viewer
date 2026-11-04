@@ -14,6 +14,7 @@
 - File paths show the home folder as `~`.
 - Modifier labels follow the macOS order ⌃⌥⇧⌘.
 - Settings → Editor opens keymap and config files with a command like `code`.
+- The popover fits the keymap: no more empty band around the layer tabs.
 
 ## Commits Since v1.5.0
 - feat: walk through the unlock key and flashing step by step
