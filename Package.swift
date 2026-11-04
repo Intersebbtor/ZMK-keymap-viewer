@@ -31,7 +31,8 @@ let package = Package(
                 "SplitKeyboardIcon.swift",
                 "StudioProtocol.swift",
                 "StudioClient.swift",
-                "StudioKeymap.swift"
+                "StudioKeymap.swift",
+                "KeyCharacters.swift"
             ]
         ),
         .testTarget(

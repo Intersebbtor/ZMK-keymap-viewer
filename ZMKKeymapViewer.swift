@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Carbon
 
 let appVersion = "1.5.0"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
@@ -69,6 +70,8 @@ class AppState: ObservableObject {
         didSet { if followLiveLayer { syncToLiveLayer() } }
     }
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
+    /// The setup guide's last step, shown once with the first keymap
+    @AppStorage("hasSeenKeyNamesGuide") var hasSeenKeyNamesGuide = false
     @AppStorage("readKeymapFromKeyboard") var readKeymapFromKeyboard = true {
         didSet {
             if readKeymapFromKeyboard {
@@ -122,6 +125,16 @@ class AppState: ObservableObject {
 
     init() {
         AppState.instance = self
+        // Before any keymap is parsed: labels show what keys type
+        KeyCharacters.loadSystemLayout()
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            print("[App] Keyboard layout changed")
+            KeyCharacters.loadSystemLayout()
+            self?.keymapViewModel.refreshLabels()
+        }
         loadRecentKeymaps()
         setupActivityMonitor()
         setupGlobalShortcut()

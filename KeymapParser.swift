@@ -833,6 +833,12 @@ class KeymapParser {
     }
     
     private static func formatKey(_ key: String) -> String {
+        // What the key types in the active layout: € for LS(LA(N2)), Ö for
+        // SEMI in the German layout
+        if let typed = KeyCharacters.typedCharacter(for: key) {
+            return typed
+        }
+
         // Remove common prefixes and format nicely
         let formatted = key
             .replacingOccurrences(of: "NUMBER_", with: "")

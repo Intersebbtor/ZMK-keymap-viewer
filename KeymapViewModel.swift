@@ -23,6 +23,11 @@ class KeymapViewModel: ObservableObject {
         return keymap?.layers[safe: index]?.name ?? "Layer \(index)"
     }
 
+    /// Names given to keys with a right-click, by what the key does (its
+    /// label), so a name applies wherever the same binding sits
+    @Published private(set) var keyNames: [String: String] = UserDefaults.standard.dictionary(forKey: KeymapViewModel.keyNamesKey) as? [String: String] ?? [:]
+    private static let keyNamesKey = "keyNames"
+
     private var fileKeymap: Keymap?
     private var keyboardSnapshot: StudioSnapshot?
 
@@ -116,6 +121,11 @@ class KeymapViewModel: ObservableObject {
             keyboardName = snapshot.deviceName
         }
 
+        if var named = shown, !keyNames.isEmpty {
+            named.layers = named.layers.map(applyingKeyNames)
+            shown = named
+        }
+
         let layerCount = shown?.layers.count ?? 0
         if resetSelection {
             layerSelection.reset(layerCount: layerCount)
@@ -124,6 +134,39 @@ class KeymapViewModel: ObservableObject {
         }
         keymap = shown
         keyboardKeymapName = keyboardName
+    }
+
+    // MARK: - Key names
+
+    func keyName(for binding: KeyBinding) -> String? {
+        keyNames[binding.displayText]
+    }
+
+    /// An empty name removes it
+    func setKeyName(_ name: String?, for binding: KeyBinding) {
+        let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        keyNames[binding.displayText] = trimmed.isEmpty ? nil : trimmed
+        UserDefaults.standard.set(keyNames, forKey: Self.keyNamesKey)
+        updateDisplayedKeymap(resetSelection: false)
+    }
+
+    /// A name given in the app wins over an alias comment in the file
+    private func applyingKeyNames(_ layer: KeymapLayer) -> KeymapLayer {
+        KeymapLayer(
+            name: layer.name,
+            bindings: layer.bindings.map { binding in
+                guard let name = keyNames[binding.displayText] else { return binding }
+                return KeyBinding(displayText: binding.displayText, rawCode: binding.rawCode, alias: name, row: binding.row, column: binding.column)
+            },
+            rowCount: layer.rowCount,
+            columnCount: layer.columnCount
+        )
+    }
+
+    /// Labels again after the keyboard layout changed (KeyCharacters)
+    func refreshLabels() {
+        updateDisplayedKeymap(resetSelection: false)
+        reloadCurrentKeymap()
     }
 
     /// Aliases of the file's layers whose key count matches the keyboard's

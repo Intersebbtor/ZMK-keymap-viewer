@@ -254,6 +254,24 @@ class StudioTests: XCTestCase {
     }
 
     @MainActor
+    func testKeyNamesApplyWhereverTheBindingSits() async throws {
+        let snapshot = try await FakeStudioKeyboard.sweep().connectedClient().fetchSnapshot()
+        let viewModel = KeymapViewModel()
+        viewModel.applyKeyboardSnapshot(snapshot)
+        let binding = try XCTUnwrap(viewModel.keymap?.layers[1].bindings.first { $0.displayText == "▽" })
+        defer { viewModel.setKeyName(nil, for: binding) }
+
+        viewModel.setKeyName("  Through ", for: binding)
+
+        let named = viewModel.keymap!.layers.flatMap(\.bindings).filter { $0.displayText == "▽" }
+        XCTAssertFalse(named.isEmpty)
+        XCTAssertTrue(named.allSatisfy { $0.effectiveDisplayText == "Through" })
+
+        viewModel.setKeyName("", for: binding)
+        XCTAssertTrue(viewModel.keymap!.layers.flatMap(\.bindings).allSatisfy { $0.alias == nil })
+    }
+
+    @MainActor
     func testKeyboardLayerNamesFallBackToFile() async throws {
         let keyboard = FakeStudioKeyboard.sweep()
         let unnamed = FakeStudioKeyboard(

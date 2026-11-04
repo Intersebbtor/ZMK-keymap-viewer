@@ -143,8 +143,10 @@ struct ContentView: View {
     @State private var isRecordingShortcut = false
     @State private var isDropTargeted = false
 
-    /// No keymap yet: the setup guide takes the whole popover
-    private var showsSetup: Bool { viewModel.keymap == nil && !appState.isSettingsVisible }
+    /// No keymap yet, or its last step: the setup guide takes the whole popover
+    private var showsSetup: Bool {
+        (viewModel.keymap == nil || !appState.hasSeenKeyNamesGuide) && !appState.isSettingsVisible
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -164,7 +166,9 @@ struct ContentView: View {
                     }
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else if viewModel.keymap != nil {
-                    if appState.isHUDModeEnabled {
+                    if !appState.hasSeenKeyNamesGuide {
+                        keyNamesGuideView
+                    } else if appState.isHUDModeEnabled {
                         hudActiveView
                     } else {
                         // All normal UI
@@ -370,7 +374,7 @@ struct ContentView: View {
                     Text((filePath as NSString).abbreviatingWithTildeInPath)
                         .foregroundColor(.primary)
                 } else {
-                    Text("No file. The keymap comes from the keyboard; a file adds alias comments.")
+                    Text("No file needed. Right-click a key to name it.")
                         .foregroundColor(.secondary)
                 }
             }
@@ -519,6 +523,11 @@ struct ContentView: View {
                     pressedPositions: viewModel.pressedPositions
                 )
                 .padding(20)
+                .environment(\.keyNaming, KeyNaming(
+                    name: askForKeyName,
+                    hasName: { viewModel.keyName(for: $0) != nil },
+                    removeName: { viewModel.setKeyName(nil, for: $0) }
+                ))
             }
         }
     }
@@ -543,7 +552,7 @@ struct ContentView: View {
                     keyboardSetupContent
                 }
                 setupCard(title: "From a file", systemImage: "doc.text") {
-                    Text("Load the .keymap file from your zmk-config. Alias comments like /* =€ */ in it show up on the keys.")
+                    Text("Load the .keymap file from your zmk-config. The app follows it when you change it.")
                     Button {
                         chooseKeymapFile()
                     } label: {
@@ -621,6 +630,97 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    /// Last step of the setup guide: what the labels show and how to name
+    /// shortcuts and macros. The way that fits where the keymap came from
+    /// comes first.
+    private var keyNamesGuideView: some View {
+        let fromKeyboard = viewModel.keyboardKeymapName != nil
+        let rightClick = guideWay(
+            systemImage: "cursorarrow.click.2",
+            title: "Right-click a key",
+            text: "Choose Name This Key… and type a name. It shows on every key that does the same."
+        )
+        let fileComment = guideWay(
+            systemImage: "doc.text",
+            title: "Or in your .keymap file",
+            text: "Put a comment with = right after the binding:",
+            code: "&kp LS(LG(N4)) /* =Screenshot */"
+        )
+        return VStack(spacing: 18) {
+            VStack(spacing: 6) {
+                Image(systemName: "character.cursor.ibeam")
+                    .font(.system(size: 32))
+                    .foregroundColor(.accentColor)
+                Text("Name your keys")
+                    .font(.title2.bold())
+                Text("Keys that type a character show it, like € or ß. Shortcuts and macros show their keys, so give them a name you recognize:")
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 480)
+            }
+
+            HStack(spacing: 12) {
+                guideKey("⇧+⌘+4")
+                Image(systemName: "arrow.right")
+                    .foregroundColor(.secondary)
+                guideKey("Screenshot", highlighted: true)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                if fromKeyboard {
+                    rightClick
+                    fileComment
+                } else {
+                    fileComment.replacingTitle("In your .keymap file")
+                    rightClick.replacingTitle("Or right-click a key")
+                }
+            }
+            .frame(maxWidth: 480)
+
+            Button("Show My Keymap") {
+                appState.hasSeenKeyNamesGuide = true
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func guideKey(_ label: String, highlighted: Bool = false) -> some View {
+        Text(label)
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .frame(minWidth: 54, minHeight: 44)
+            .padding(.horizontal, 8)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(NSColor.controlBackgroundColor)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(highlighted ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: highlighted ? 2 : 1)
+            )
+    }
+
+    private func guideWay(systemImage: String, title: String, text: String, code: String? = nil) -> GuideWay {
+        GuideWay(systemImage: systemImage, title: title, text: text, code: code)
+    }
+
+    private func askForKeyName(_ binding: KeyBinding) {
+        let current = binding.displayText.replacingOccurrences(of: "\n", with: " ")
+        let alert = NSAlert()
+        alert.messageText = "Name this key"
+        alert.informativeText = "Shown instead of \(current) wherever that binding sits. Leave it empty to show \(current) again."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        field.stringValue = viewModel.keyName(for: binding) ?? binding.alias ?? ""
+        field.placeholderString = "e.g. Screenshot"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        viewModel.setKeyName(field.stringValue, for: binding)
     }
 
     // MARK: - Loading files
@@ -948,11 +1048,31 @@ struct ContentView: View {
 
 // MARK: - Key View with Tooltip
 
+/// Naming keys with a right-click: in the popover, not in the HUD
+struct KeyNaming {
+    let name: (KeyBinding) -> Void
+    let hasName: (KeyBinding) -> Bool
+    let removeName: (KeyBinding) -> Void
+}
+
+private struct KeyNamingKey: EnvironmentKey {
+    static let defaultValue: KeyNaming? = nil
+}
+
+extension EnvironmentValues {
+    var keyNaming: KeyNaming? {
+        get { self[KeyNamingKey.self] }
+        set { self[KeyNamingKey.self] = newValue }
+    }
+}
+
 struct KeyView: View {
     let binding: KeyBinding
     let isThumbKey: Bool
     /// Held down on the keyboard right now
     var isPressed: Bool = false
+
+    @Environment(\.keyNaming) private var keyNaming
 
     @State private var isHovered = false
     @State private var showTooltip = false
@@ -1028,6 +1148,14 @@ struct KeyView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: showTooltip)
+        .contextMenu {
+            if let keyNaming = keyNaming {
+                Button("Name This Key…") { keyNaming.name(binding) }
+                if keyNaming.hasName(binding) {
+                    Button("Remove Name") { keyNaming.removeName(binding) }
+                }
+            }
+        }
     }
     
     private var borderColor: Color {
@@ -1152,5 +1280,43 @@ class ShortcutRecordingView: NSView {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+    }
+}
+
+/// One way to name keys in the setup guide
+struct GuideWay: View {
+    let systemImage: String
+    var title: String
+    let text: String
+    var code: String?
+
+    func replacingTitle(_ title: String) -> GuideWay {
+        var way = self
+        way.title = title
+        return way
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundColor(.accentColor)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .bold()
+                Text(text)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let code = code {
+                    Text(code)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color(NSColor.controlBackgroundColor)))
+                }
+            }
+        }
     }
 }
