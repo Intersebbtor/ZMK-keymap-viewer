@@ -72,7 +72,7 @@ The app walks you through it and checks your zmk-config as you go: steps that ar
 
 1. Open the app and click **Set up my firmware…** in the setup window.
 2. **Choose your zmk-config**, the folder with `build.yaml`.
-3. **Add the modules** to `config/west.yml`: [zmk-raw-hid](https://github.com/zzeneg/zmk-raw-hid) and [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier), the same modules [KeyPeek](https://github.com/srwi/keypeek) uses. The app shows the change as *now* and *after*; **Make This Change** writes it.
+3. **Add the modules** to `config/west.yml`: [zmk-raw-hid](https://github.com/zzeneg/zmk-raw-hid) and [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier), the same modules [KeyPeek](https://github.com/srwi/keypeek) uses (see [Credits](#-credits)). The app shows the change as *now* and *after*; **Make This Change** writes it.
 4. **Turn on Raw HID and ZMK Studio** for the central half in `build.yaml`, the same way. Only the central half needs it.
 5. **Put `&studio_unlock` on a key** in your keymap. ZMK Studio keeps the keymap locked until you press it. A good place is the layer with your Bluetooth keys; without a spare key, a combo works too. The app shows how.
 6. **Build and flash:** commit and push your zmk-config, download the firmware from the build (on GitHub: the Actions tab) and flash the central half.
@@ -188,11 +188,11 @@ Ideas and PRs welcome! Some things on the radar:
 
 ## 🙏 Credits
 
-The live layer builds on other people's open source work:
+The live layer and reading the keymap from the keyboard build on other people's open source work:
 
-- [KeyPeek](https://github.com/srwi/keypeek) and [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) by [srwi](https://github.com/srwi): the firmware module and Raw HID protocol the viewer listens to
+- [KeyPeek](https://github.com/srwi/keypeek) and [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) by [srwi](https://github.com/srwi): the firmware module and Raw HID protocol the viewer listens to, which also carries ZMK Studio
 - [zmk-raw-hid](https://github.com/zzeneg/zmk-raw-hid) by [zzeneg](https://github.com/zzeneg): the Raw HID transport over USB and Bluetooth
-- [ZMK Firmware](https://zmk.dev)
+- [ZMK Firmware](https://zmk.dev) and [ZMK Studio](https://zmk.studio), whose [protocol](https://github.com/zmkfirmware/zmk-studio-messages) the app reads the keymap with
 
 ---
 
