@@ -292,6 +292,7 @@ struct ContentView: View {
             print("[ContentView] Popover hidden")
             appState.isSettingsVisible = false
             appState.keyBeingNamed = nil
+            appState.holdsShownLayer = false
         })
     }
     

@@ -72,9 +72,18 @@ class AppState: ObservableObject {
     @AppStorage("showLayerInMenuBar") var showLayerInMenuBar = true
     /// The setup guide's last step, shown once with the first keymap
     @AppStorage("hasSeenKeyNamesGuide") var hasSeenKeyNamesGuide = false
-    /// The key whose name is being typed in the popover. Typing on the
-    /// keyboard changes layers, so the shown layer holds still meanwhile.
-    @Published var keyBeingNamed: KeyBinding?
+    /// The key whose name is being typed in the popover
+    @Published var keyBeingNamed: KeyBinding? {
+        didSet {
+            if keyBeingNamed != nil {
+                holdsShownLayer = true
+            }
+        }
+    }
+    /// Once a key is named, the popover stays on its layer until it closes:
+    /// typing the name on the keyboard changes layers, and the next key to
+    /// name is often on the same layer
+    var holdsShownLayer = false
     @AppStorage("readKeymapFromKeyboard") var readKeymapFromKeyboard = true {
         didSet {
             if readKeymapFromKeyboard {
@@ -298,7 +307,7 @@ class AppState: ObservableObject {
 
     private func handleLiveLayer(_ index: Int) {
         print("[LiveLayer] Active layer: \(index)")
-        keymapViewModel.applyLiveLayer(index, follow: followLiveLayer && keyBeingNamed == nil)
+        keymapViewModel.applyLiveLayer(index, follow: followLiveLayer && !holdsShownLayer)
         wakeHUD()
     }
 
