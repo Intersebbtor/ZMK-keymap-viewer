@@ -3,7 +3,7 @@ import AppKit
 import Carbon
 import UniformTypeIdentifiers
 
-let appVersion = "1.6.0"
+let appVersion = "1.6.1"
 let githubRepo = "Intersebbtor/ZMK-keymap-viewer"
 
 @main
@@ -65,6 +65,8 @@ class AppState: ObservableObject {
     @AppStorage("hudOpacity") var hudOpacity: Double = 0.9
     @AppStorage("hudUseMaterial") var hudUseMaterial = true
     @AppStorage("hudTimeout") var hudTimeout: Double = 3.0
+    /// Typing speed in the HUD's corner, like ZMK's nice!view widget
+    @AppStorage("showWPMInHUD") var showWPMInHUD = true
     
     // Live Layer Settings
     @AppStorage("followLiveLayer") var followLiveLayer = true {

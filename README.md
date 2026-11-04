@@ -20,6 +20,7 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 - 👁️ [**HUD Mode**](#️-hud-mode) — Transparent floating overlay (toggle with `Cmd+Shift+K`, or a shortcut of your own)
 - 📡 [**Live layer**](#-live-layer) — Follows the layer you're on, over USB or Bluetooth
 - ✨ [**Key highlighting**](#-live-layer) — Keys light up in the HUD while you hold them
+- ⚡ [**Typing speed**](#️-hud-mode) — A WPM counter with a graph in the HUD, like ZMK's nice!view widget
 - 🔢 **Layer in the menu bar** — The menu bar icon shows the active layer number
 - ⌨️ [**Keymap from the keyboard**](#keymap-straight-from-the-keyboard) — Reads the keymap over ZMK Studio, no file needed
 - 🧭 [**Guided setup**](#-setup) — Gets your firmware ready, showing every change before it makes it
@@ -132,13 +133,14 @@ The app only adds lines and values to your files and keeps your comments and eve
 
 ### 👁️ HUD Mode
 
-<img width="700" alt="Keys lighting up in the HUD while typing" src="assets/hud_highlighting.gif" />
+<img width="700" alt="Keys lighting up in the HUD while typing, with the typing speed in the corner" src="assets/hud_highlighting.gif" />
 
 - **Always-on-top** floating overlay, toggled with `Cmd+Shift+K` (or your own shortcut)
 - **Auto-fades** after inactivity, wakes on hover, on key presses and on layer changes
 - **Stays visible while you hold a key**, so a held layer (`&mo`, `&lt`, `&mt`) stays on screen while you look for a key
 - **Draggable** by the handle bar at the top, **resizable** from any edge or corner
-- Customize opacity, blur and timeout in Settings
+- **Typing speed** in the corner while the keyboard is connected: words per minute with a graph of the last 30 seconds, counted like ZMK's nice!view widget (five key presses a word, over the last five seconds). Every press counts, typos and corrections too, so it's your raw speed
+- Customize opacity, blur, timeout and the typing speed in Settings
 
 ### 📡 Live Layer
 

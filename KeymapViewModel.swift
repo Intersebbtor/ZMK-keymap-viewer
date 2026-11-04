@@ -187,8 +187,37 @@ class KeymapViewModel: ObservableObject {
     func setKey(position: Int, pressed: Bool) {
         if pressed {
             pressedPositions.insert(position)
+            countForWPM(position)
         } else {
             pressedPositions.remove(position)
+        }
+    }
+
+    // MARK: - Typing speed
+
+    /// Words per minute, and one value a second for the graph
+    @Published private(set) var wpm = 0
+    @Published private(set) var wpmHistory: [Int] = []
+    private var wpmMeter = WPMMeter()
+    private var wpmTimer: Timer?
+
+    /// A press on the live layer that types something; the timer runs only
+    /// while there is something to show
+    private func countForWPM(_ position: Int) {
+        let layer = layerSelection.liveIndex ?? layerSelection.displayedIndex
+        if let binding = keymap?.layers[safe: layer]?.bindings[safe: position], !WPMMeter.counts(binding.rawCode) {
+            return
+        }
+        wpmMeter.recordPress(at: ProcessInfo.processInfo.systemUptime)
+        guard wpmTimer == nil else { return }
+        wpmTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.wpm = self.wpmMeter.sample(at: ProcessInfo.processInfo.systemUptime)
+            self.wpmHistory = self.wpmMeter.history
+            if self.wpmMeter.isIdle {
+                self.wpmTimer?.invalidate()
+                self.wpmTimer = nil
+            }
         }
     }
 
