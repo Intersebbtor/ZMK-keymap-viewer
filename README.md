@@ -145,6 +145,16 @@ Ideas and PRs welcome! Some things on the radar:
 
 ---
 
+## 🙏 Credits
+
+The live layer builds on other people's open source work:
+
+- [KeyPeek](https://github.com/srwi/keypeek) and [zmk-keypeek-layer-notifier](https://github.com/srwi/zmk-keypeek-layer-notifier) by [srwi](https://github.com/srwi): the firmware module and Raw HID protocol the viewer listens to
+- [zmk-raw-hid](https://github.com/zzeneg/zmk-raw-hid) by [zzeneg](https://github.com/zzeneg): the Raw HID transport over USB and Bluetooth
+- [ZMK Firmware](https://zmk.dev)
+
+---
+
 ## 📄 License
 
-MIT © Intersebbtor
+MIT © Intersebbtor, see [LICENSE](LICENSE)
