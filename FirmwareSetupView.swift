@@ -91,12 +91,34 @@ struct FirmwareSetupView: View {
                     }
 
                     step(3, done: configFolder != nil && setup.hasUnlockKey, title: "Put the unlock key on your keymap", file: setup.keymapFile) {
-                        Text("ZMK Studio stays locked until you press this key. Only you know where it fits: a key you rarely use, like next to your Bluetooth or reset keys.")
+                        Text("ZMK Studio keeps your keymap locked until you press a key bound to &studio_unlock, so the app can only read it after that. The app can't pick that key for you; it's up to you where it fits.")
+                        instructions([
+                            "Open \(setup.keymapFile) and pick a key you rarely press. The layer with your Bluetooth keys is a good place: you won't hit it by accident there.",
+                            "Replace that key's binding (often &trans or &none) with:",
+                        ])
                         codeBlock("&studio_unlock")
+                        Text("No spare key? Use a combo: pressing two keys together unlocks, and no key gets lost. Add it to the root of your keymap and set key-positions to two keys of yours (counted from 0, top left):")
+                            .foregroundColor(.secondary)
+                        codeBlock("""
+                        combos {
+                            compatible = "zmk,combos";
+                            combo_studio_unlock {
+                                timeout-ms = <50>;
+                                key-positions = <0 9>;
+                                bindings = <&studio_unlock>;
+                            };
+                        };
+                        """)
                     }
 
                     step(4, done: keyboardAnswers, title: "Build, flash and pair again", file: nil) {
-                        Text("Commit and push your zmk-config: GitHub Actions builds the firmware. Flash the central half with it, then remove the keyboard in System Settings → Bluetooth and pair it again. macOS only sees the new connection after that.")
+                        Text("Now the new firmware has to get onto your keyboard:")
+                        instructions([
+                            "Save your changes, then commit and push your zmk-config to GitHub, or wherever your firmware is built.",
+                            "Wait for the build (on GitHub: the Actions tab) and download the firmware it made.",
+                            "Flash the central half (\(setup.centralShield)): connect it over USB, double-tap its reset button, and copy its .uf2 file onto the drive that shows up. The other half doesn't need it.",
+                            "Pair it again: in System Settings → Bluetooth, remove the keyboard and connect it anew. macOS only sees the new connection after that.",
+                        ])
                         if appState.liveDeviceName != nil, appState.keyboardKeymapStatus == .failed {
                             Label("\(appState.liveDeviceName ?? "The keyboard") is connected but ZMK Studio doesn't answer. Check step 2.", systemImage: "exclamationmark.triangle")
                                 .foregroundColor(.orange)
@@ -345,6 +367,21 @@ struct FirmwareSetupView: View {
             .help("Open \(file) in your editor")
         } else {
             label.foregroundColor(.secondary)
+        }
+    }
+
+    /// Numbered steps the user does by hand
+    private func instructions(_ steps: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, text in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(index + 1).")
+                        .foregroundColor(.secondary)
+                        .frame(width: 18, alignment: .trailing)
+                    Text(text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 
