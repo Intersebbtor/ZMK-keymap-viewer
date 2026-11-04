@@ -324,98 +324,110 @@ struct ContentView: View {
     
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 4) { // Reduce internal spacing
-            HStack {
-                Text("Keymap")
-                    .font(.subheadline.bold()) // A bit smaller to save space
-
-                Spacer()
-
-                Button {
-                    chooseKeymapFile()
-                } label: {
-                    Label("Choose File…", systemImage: "folder")
+            if viewModel.keyboardKeymapName != nil {
+                // Read from the keyboard: a file has no say then, so its
+                // controls stay hidden (Settings → Live Layer turns reading off)
+                HStack(spacing: 8) {
+                    Text("Keymap")
+                        .font(.subheadline.bold())
+                    keyboardSourceView
+                    Spacer()
                 }
-                .controlSize(.small)
+            } else {
+                HStack {
+                    Text("Keymap")
+                        .font(.subheadline.bold()) // A bit smaller to save space
 
-                // Recent keymaps menu
-                if !appState.recentKeymaps.isEmpty {
-                    Menu {
-                        ForEach(appState.recentKeymaps, id: \.self) { path in
-                            Button {
-                                loadKeymap(from: path)
-                            } label: {
-                                let filename = URL(fileURLWithPath: path).lastPathComponent
-                                let isSelected = path == viewModel.currentFilePath
-                                if isSelected {
-                                    Label(filename, systemImage: "checkmark")
-                                } else {
-                                    Text(filename)
+                    Spacer()
+
+                    Button {
+                        chooseKeymapFile()
+                    } label: {
+                        Label("Choose File…", systemImage: "folder")
+                    }
+                    .controlSize(.small)
+
+                    // Recent keymaps menu
+                    if !appState.recentKeymaps.isEmpty {
+                        Menu {
+                            ForEach(appState.recentKeymaps, id: \.self) { path in
+                                Button {
+                                    loadKeymap(from: path)
+                                } label: {
+                                    let filename = URL(fileURLWithPath: path).lastPathComponent
+                                    let isSelected = path == viewModel.currentFilePath
+                                    if isSelected {
+                                        Label(filename, systemImage: "checkmark")
+                                    } else {
+                                        Text(filename)
+                                    }
                                 }
                             }
-                        }
                         
-                        Divider()
+                            Divider()
                         
-                        Button(role: .destructive) {
-                            appState.clearRecentKeymaps()
+                            Button(role: .destructive) {
+                                appState.clearRecentKeymaps()
+                            } label: {
+                                Label("Clear History", systemImage: "trash")
+                            }
                         } label: {
-                            Label("Clear History", systemImage: "trash")
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                Text("Recent")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(4)
                         }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock.arrow.circlepath")
-                            Text("Recent")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(4)
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
                     }
-                    .menuStyle(.borderlessButton)
                 }
-            }
             
-            // The loaded file, ~ instead of the home folder: shorter, and
-            // keeps the user name out of screenshots
-            if let filePath = viewModel.currentFilePath {
-                Text((filePath as NSString).abbreviatingWithTildeInPath)
-                    .font(.system(size: 12, design: .monospaced))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            
-            // Status row
-            HStack(spacing: 8) {
-                keyboardSourceView
-
+                // The loaded file, ~ instead of the home folder: shorter, and
+                // keeps the user name out of screenshots
                 if let filePath = viewModel.currentFilePath {
-                    Button {
-                        NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
-                    } label: {
-                        Label("Open in Editor", systemImage: "pencil.and.outline")
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
+                    Text((filePath as NSString).abbreviatingWithTildeInPath)
+                        .font(.system(size: 12, design: .monospaced))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                
-                Spacer()
-                
-                if let keymap = viewModel.keymap {
-                    Text(keymap.layout.name)
+            
+                // Status row
+                HStack(spacing: 8) {
+                    keyboardSourceView
+
+                    if let filePath = viewModel.currentFilePath {
+                        Button {
+                            NSWorkspace.shared.open(URL(fileURLWithPath: filePath))
+                        } label: {
+                            Label("Open in Editor", systemImage: "pencil.and.outline")
+                        }
+                        .buttonStyle(.borderless)
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(4)
+                    }
+                
+                    Spacer()
+                
+                    if let keymap = viewModel.keymap {
+                        Text(keymap.layout.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(4)
+                    }
                 }
             }
         }
         .padding()
     }
-    
+
     /// Where the shown keymap comes from when the keyboard is involved
     @ViewBuilder
     private var keyboardSourceView: some View {
