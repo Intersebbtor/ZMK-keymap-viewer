@@ -10,6 +10,9 @@ With two small firmware modules it follows your keyboard live: it shows the laye
 ![Swift](https://img.shields.io/badge/Swift-5.9+-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+> **On Windows or Linux?** Have a look at [**peekaboard**](https://github.com/Intersebbtor/peekaboard),
+> the cross-platform port of this app. QMK support is planned there too.
+
 ---
 
 ## ✨ Features
@@ -181,10 +184,8 @@ For the live layer it listens for the Raw HID reports of [zmk-keypeek-layer-noti
 
 ## 🤝 Contributing
 
-Ideas and PRs welcome! Some things on the radar:
-
-- [ ] Windows/Linux support
-- [ ] QMK support
+Ideas and PRs welcome! This app is feature complete for ZMK on macOS.
+Windows, Linux and QMK happen in [peekaboard](https://github.com/Intersebbtor/peekaboard).
 
 ---
 
